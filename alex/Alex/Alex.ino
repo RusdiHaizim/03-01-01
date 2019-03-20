@@ -60,7 +60,8 @@ volatile unsigned long rightRevs;
 // Forward and backward distance traveled
 volatile unsigned long forwardDist;
 volatile unsigned long reverseDist;
-
+unsigned long deltaDist;
+unsigned long newDist;
 
 /*
  * 
@@ -205,7 +206,7 @@ void enablePullups()
 // Functions to be called by INT0 and INT1 ISRs.
 void leftISR()
 {
-  //leftForwardTicks++;
+  leftForwardTicks++;
   if (dir==FORWARD) {
     leftForwardTicks++;
     forwardDist = (unsigned long) ((float)leftForwardTicks / COUNTS_PER_REV * WHEEL_CIRC);
@@ -230,11 +231,13 @@ void leftISR()
   
   //Serial.print("LEFT: ");
   //Serial.println(leftForwardTicks);
+//  dprintf("Left: ");
+//  dprintf("%d", LefttForwardTicks);
 }
 
 void rightISR()
 {
-  //rightForwardTicks++;
+  rightForwardTicks++;
   if (dir==FORWARD) {
     rightForwardTicks++;
   }
@@ -250,6 +253,8 @@ void rightISR()
 
   rightRevs = rightForwardTicks / COUNTS_PER_REV;
   //Serial.print("RIGHT: ");
+//  dprintf("RIGHT: ");
+//  dprintf("%d", rightForwardTicks);
   //Serial.println(rightForwardTicks);
 }
 
@@ -377,6 +382,13 @@ void forward(float dist, float speed)
   dir = FORWARD;
   
   int val = pwmVal(speed);
+  int powerL = val;
+  int powerR = val * 0.908;
+  if (dist == 0)
+    deltaDist = 999999;
+  else 
+    deltaDist = dist;
+  newDist = forwardDist + deltaDist;
 
   // For now we will ignore dist and move
   // forward indefinitely. We will fix this
@@ -386,8 +398,8 @@ void forward(float dist, float speed)
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
   
-  analogWrite(LF, val);
-  analogWrite(RF, val);
+  analogWrite(LF, powerL);
+  analogWrite(RF, powerR);
   analogWrite(LR,0);
   analogWrite(RR, 0);
 }
@@ -399,18 +411,26 @@ void forward(float dist, float speed)
 // continue reversing indefinitely.
 void reverse(float dist, float speed)
 {
-
+  dir = BACKWARD;
+  
   int val = pwmVal(speed);
-
+  int powerL = val;
+  int powerR = val * 0.908;
   // For now we will ignore dist and 
   // reverse indefinitely. We will fix this
   // in Week 9.
 
+  if (dist == 0)
+    deltaDist = 999999;
+  else 
+    deltaDist = dist;
+  newDist = forwardDist + deltaDist;
+
   // LF = Left forward pin, LR = Left reverse pin
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
-  analogWrite(LR, val);
-  analogWrite(RR, val);
+  analogWrite(LR, powerL);
+  analogWrite(RR, powerR);
   analogWrite(LF, 0);
   analogWrite(RF, 0);
 }
@@ -422,6 +442,8 @@ void reverse(float dist, float speed)
 // turn left indefinitely.
 void left(float ang, float speed)
 {
+  dir = LEFT;
+  
   int val = pwmVal(speed);
 
   // For now we will ignore ang. We will fix this in Week 9.
@@ -441,6 +463,8 @@ void left(float ang, float speed)
 // turn right indefinitely.
 void right(float ang, float speed)
 {
+  dir = RIGHT;
+  
   int val = pwmVal(speed);
 
   // For now we will ignore ang. We will fix this in Week 9.
@@ -626,7 +650,29 @@ void loop() {
 //  delay(1000);
 // Uncomment the code below for Week 9 Studio 2
 
-
+  if (deltaDist > 0){
+    if (dir == FORWARD){
+      if (forwardDist > newDist){
+        deltaDist = 0;
+        newDist = 0;
+        stop();
+      }
+    } else {
+      if (dir == BACKWARD){
+        if (reverseDist > newDist){
+          deltaDist = 0;
+          newDist = 0;
+          stop();
+        }
+      } else {
+        if (dir == STOP){
+          deltaDist = 0;
+          newDist = 0;
+          stop();
+        }
+      }
+    }
+  }
  // put your main code here, to run repeatedly:
   TPacket recvPacket; // This holds commands from the Pi
 
