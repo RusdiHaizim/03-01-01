@@ -3,6 +3,16 @@
 #include "packet.h"
 #include "constants.h"
 
+typedef enum {
+  STOP=0,
+  FORWARD=1,
+  BACKWARD=2,
+  LEFT=3,
+  RIGHT=4 
+} TDirection;
+
+volatile TDirection dir = STOP;
+
 /*
  * Alex's configuration constants
  */
@@ -10,13 +20,13 @@
 // Number of ticks per revolution from the 
 // wheel encoder.
 
-#define COUNTS_PER_REV      1
+#define COUNTS_PER_REV      200
 
 // Wheel circumference in cm.
 // We will use this to calculate forward/backward distance traveled 
 // by taking revs * WHEEL_CIRC
 
-#define WHEEL_CIRC          1
+#define WHEEL_CIRC          21
 
 // Motor control pins. You need to adjust these till
 // Alex moves in the correct direction
@@ -31,8 +41,16 @@
 
 // Store the ticks from Alex's left and
 // right encoders.
-volatile unsigned long leftTicks; 
-volatile unsigned long rightTicks;
+volatile unsigned long leftForwardTicks; 
+volatile unsigned long rightForwardTicks;
+volatile unsigned long leftReverseTicks; 
+volatile unsigned long rightReverseTicks;
+
+// Left and Right encoder ticks for turning
+volatile unsigned long leftForwardTicksTurns;
+volatile unsigned long rightForwardTicksTurns; 
+volatile unsigned long leftReverseTicksTurns; 
+volatile unsigned long rightReverseTicksTurns; 
 
 // Store the revolutions on Alex's left
 // and right wheels
@@ -71,12 +89,27 @@ TResult readPacket(TPacket *packet)
 void sendStatus()
 {
   // Implement code to send back a packet containing key
-  // information like leftTicks, rightTicks, leftRevs, rightRevs
+  // information like leftForwardTicks, rightForwardTicks, leftRevs, rightRevs
   // forwardDist and reverseDist
   // Use the params array to store this information, and set the
   // packetType and command files accordingly, then use sendResponse
   // to send out the packet. See sendMessage on how to use sendResponse.
   //
+  TPacket statusPacket;
+  statusPacket.packetType = PACKET_TYPE_RESPONSE;
+  statusPacket.command = RESP_STATUS;
+  statusPacket.params[0] = leftForwardTicks;
+  statusPacket.params[1] = rightForwardTicks;
+  statusPacket.params[2] = leftReverseTicks;
+  statusPacket.params[3] = rightReverseTicks;
+  statusPacket.params[4] = leftForwardTicksTurns;
+  statusPacket.params[5] = rightForwardTicksTurns;
+  statusPacket.params[6] = leftReverseTicksTurns;
+  statusPacket.params[7] = rightReverseTicksTurns;
+  statusPacket.params[8] = forwardDist;
+  statusPacket.params[9] = reverseDist;
+  
+  sendResponse(&statusPacket);
 }
 
 void sendMessage(const char *message)
@@ -172,26 +205,52 @@ void enablePullups()
 // Functions to be called by INT0 and INT1 ISRs.
 void leftISR()
 {
-  leftTicks++;
+  //leftForwardTicks++;
+  if (dir==FORWARD) {
+    leftForwardTicks++;
+    forwardDist = (unsigned long) ((float)leftForwardTicks / COUNTS_PER_REV * WHEEL_CIRC);
+  }
+  else if (dir==BACKWARD) {
+    leftReverseTicks++;
+    reverseDist = (unsigned long) ((float)leftReverseTicks / COUNTS_PER_REV * WHEEL_CIRC);
+  }
+  else if (dir==LEFT) {
+    leftReverseTicksTurns++;
+  }
+  else if (dir==RIGHT) {
+    leftForwardTicksTurns++;
+  }
 
-  leftRevs = leftTicks / COUNTS_PER_REV;
+  leftRevs = leftForwardTicks / COUNTS_PER_REV;
 
   // We calculate forwardDist only in leftISR because we
   // assume that the left and right wheels move at the same
   // time.
-  forwardDist = leftRevs * WHEEL_CIRC;
   
-  Serial.print("LEFT: ");
-  Serial.println(leftTicks);
+  
+  //Serial.print("LEFT: ");
+  //Serial.println(leftForwardTicks);
 }
 
 void rightISR()
 {
-  rightTicks++;
+  //rightForwardTicks++;
+  if (dir==FORWARD) {
+    rightForwardTicks++;
+  }
+  else if (dir==BACKWARD) {
+    rightReverseTicks++;
+  }
+  else if (dir==LEFT) {
+    rightForwardTicksTurns++;
+  }
+  else if (dir==RIGHT) {
+    rightReverseTicksTurns++;
+  }
 
-  rightRevs = rightTicks / COUNTS_PER_REV;
-  Serial.print("RIGHT: ");
-  Serial.println(rightTicks);
+  rightRevs = rightForwardTicks / COUNTS_PER_REV;
+  //Serial.print("RIGHT: ");
+  //Serial.println(rightForwardTicks);
 }
 
 // Set up the external interrupt pins INT0 and INT1
@@ -305,7 +364,7 @@ int pwmVal(float speed)
   if(speed > 100.0)
     speed = 100.0;
 
-  return (int) (speed / 100.0) * 255.0;
+  return (int) ((speed / 100.0) * 255.0);
 }
 
 // Move Alex forward "dist" cm at speed "speed".
@@ -315,6 +374,8 @@ int pwmVal(float speed)
 // continue moving forward indefinitely.
 void forward(float dist, float speed)
 {
+  dir = FORWARD;
+  
   int val = pwmVal(speed);
 
   // For now we will ignore dist and move
@@ -409,8 +470,17 @@ void stop()
 // Clears all our counters
 void clearCounters()
 {
-  leftTicks=0;
-  rightTicks=0;
+  leftForwardTicks = 0;
+  rightForwardTicks = 0;
+  leftReverseTicks = 0;
+  rightReverseTicks = 0;
+
+  leftForwardTicksTurns = 0;
+  rightForwardTicksTurns = 0; 
+  leftReverseTicksTurns = 0; 
+  rightReverseTicksTurns = 0; 
+
+  
   leftRevs=0;
   rightRevs=0;
   forwardDist=0;
@@ -420,36 +490,7 @@ void clearCounters()
 // Clears one particular counter
 void clearOneCounter(int which)
 {
-  switch(which)
-  {
-    case 0:
-      clearCounters();
-      break;
-
-    case 1:
-      leftTicks=0;
-      break;
-
-    case 2:
-      rightTicks=0;
-      break;
-
-    case 3:
-      leftRevs=0;
-      break;
-
-    case 4:
-      rightRevs=0;
-      break;
-
-    case 5:
-      forwardDist=0;
-      break;
-
-    case 6:
-      reverseDist=0;
-      break;
-  }
+  clearCounters();
 }
 // Intialize Vincet's internal states
 
@@ -467,11 +508,35 @@ void handleCommand(TPacket *command)
         sendOK();
         forward((float) command->params[0], (float) command->params[1]);
       break;
+    case COMMAND_REVERSE:
+        sendOK();
+        reverse((float) command->params[0], (float) command->params[1]);
+      break;
+    case COMMAND_TURN_LEFT:
+        sendOK();
+        left((float) command->params[0], (float) command->params[1]);
+      break;
+    case COMMAND_TURN_RIGHT:
+        sendOK();
+        right((float) command->params[0], (float) command->params[1]);
+      break;
+    case COMMAND_STOP:
+        sendOK();
+        stop();
+      break;
 
     /*
      * Implement code for other commands here.
      * 
      */
+   case COMMAND_GET_STATS:
+        sendStatus();
+        break;
+   case COMMAND_CLEAR_STATS:
+        clearOneCounter(command->params[0]);
+        sendOK();
+        break;
+        
         
     default:
       sendBadCommand();
@@ -555,11 +620,13 @@ void loop() {
 
 // Uncomment the code below for Step 2 of Activity 3 in Week 8 Studio 2
 
- forward(0, 100);
-  delay(500);
+//  forward(0, 100);
+//  delay(1000);
+//  stop();
+//  delay(1000);
 // Uncomment the code below for Week 9 Studio 2
 
-/*
+
  // put your main code here, to run repeatedly:
   TPacket recvPacket; // This holds commands from the Pi
 
@@ -567,16 +634,14 @@ void loop() {
   
   if(result == PACKET_OK)
     handlePacket(&recvPacket);
-  else
-    if(result == PACKET_BAD)
-    {
-      sendBadPacket();
-    }
-    else
-      if(result == PACKET_CHECKSUM_BAD)
-      {
-        sendBadChecksum();
-      } 
+  else if(result == PACKET_BAD)
+  {
+    sendBadPacket();
+  }
+  else if(result == PACKET_CHECKSUM_BAD)
+  {
+    sendBadChecksum();
+  } 
       
-      */
+  
 }
