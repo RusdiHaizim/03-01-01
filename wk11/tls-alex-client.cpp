@@ -118,7 +118,7 @@ void *readerThread(void *conn)
 	while(networkActive)
 	{
 		/* TODO: Insert SSL read here into buffer */
-				sslRead(conn, buffer, 128);
+				len = sslRead(conn, buffer, sizeof(buffer));
         printf("read %d bytes from server.\n", len);
 		
 		/* END TODO */
@@ -132,6 +132,7 @@ void *readerThread(void *conn)
 	printf("Exiting network listener thread\n");
     
     /* TODO: Stop the client loop and call EXIT_THREAD */
+		stopClient();
 		EXIT_THREAD(conn);
     /* END TODO */
 }
@@ -207,6 +208,7 @@ void *writerThread(void *conn)
 	printf("Exiting keyboard thread\n");
 
     /* TODO: Stop the client loop and call EXIT_THREAD */
+		stopClient();
 		EXIT_THREAD(conn);
     /* END TODO */
 }
