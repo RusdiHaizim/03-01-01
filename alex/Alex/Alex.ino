@@ -1,6 +1,5 @@
 #include <serialize.h>
-
-
+#include <math.h>
 #include "packet.h"
 #include "constants.h"
 
@@ -20,13 +19,11 @@ volatile TDirection dir = STOP;
 
 // Number of ticks per revolution from the 
 // wheel encoder.
-
 #define COUNTS_PER_REV      200
 
 // Wheel circumference in cm.
 // We will use this to calculate forward/backward distance traveled 
 // by taking revs * WHEEL_CIRC
-
 #define WHEEL_CIRC          21
 
 // Motor control pins. You need to adjust these till
@@ -35,7 +32,6 @@ volatile TDirection dir = STOP;
 #define LR                  5   // Left reverse pin
 #define RF                  10  // Right forward pin
 #define RR                  11  // Right reverse pin
-
 /*
  *    Alex's State Variables
  */
@@ -56,13 +52,33 @@ volatile unsigned long rightReverseTicksTurns;
 // Store the revolutions on Alex's left
 // and right wheels
 volatile unsigned long leftRevs;
-volatile unsigned long rightRevs;
+volatile unsigned long rightRevs; //CURRENTLY NOT IN USE
 
 // Forward and backward distance traveled
 volatile unsigned long forwardDist;
 volatile unsigned long reverseDist;
+
+// Variables to keep track of whether we have moved a commanded distance
 unsigned long deltaDist;
 unsigned long newDist;
+
+// PI, for calculating turn of circumference
+#define PI                  3.141592654
+
+// Alex's length and breadth in cm
+#define ALEX_LENGTH         8
+#define ALEX_BREADTH        3
+
+// Alex's diagonal. We compute and store this once
+// since it is expensive to compute and really doesn't change
+float AlexDiagonal = 0.0;
+
+// Alex's turning circumference, calculated once
+float AlexCirc = 0.0;
+
+// Variables to keep track of our turning angle
+unsigned long deltaTicks;
+unsigned long targetTicks;
 
 /*
  * 
@@ -207,7 +223,7 @@ void enablePullups()
 // Functions to be called by INT0 and INT1 ISRs.
 void leftISR()
 {
-  leftForwardTicks++;
+  //leftForwardTicks++;
   if (dir==FORWARD) {
     leftForwardTicks++;
     forwardDist = (unsigned long) ((float)leftForwardTicks / COUNTS_PER_REV * WHEEL_CIRC);
@@ -223,7 +239,7 @@ void leftISR()
     leftForwardTicksTurns++;
   }
 
-  leftRevs = leftForwardTicks / COUNTS_PER_REV;
+  //leftRevs = leftForwardTicks / COUNTS_PER_REV;
 
   // We calculate forwardDist only in leftISR because we
   // assume that the left and right wheels move at the same
@@ -238,7 +254,7 @@ void leftISR()
 
 void rightISR()
 {
-  rightForwardTicks++;
+  //rightForwardTicks++;
   if (dir==FORWARD) {
     rightForwardTicks++;
   }
@@ -252,7 +268,7 @@ void rightISR()
     rightReverseTicksTurns++;
   }
 
-  rightRevs = rightForwardTicks / COUNTS_PER_REV;
+  //rightRevs = rightForwardTicks / COUNTS_PER_REV;
   //Serial.print("RIGHT: ");
 //  dprintf("RIGHT: ");
 //  dprintf("%d", rightForwardTicks);
@@ -389,6 +405,7 @@ void forward(float dist, float speed)
     deltaDist = 999999;
   else 
     deltaDist = dist;
+    
   newDist = forwardDist + deltaDist;
 
   // For now we will ignore dist and move
@@ -436,6 +453,15 @@ void reverse(float dist, float speed)
   analogWrite(RF, 0);
 }
 
+// New function to estimate number of wheel ticks
+// needed to turn an angle
+unsigned long computeDeltaTicks(float ang) {
+
+  unsigned long ticks = (unsigned long) ((ang * AlexCirc * COUNTS_PER_REV) / (360.0 * WHEEL_CIRC));
+  return ticks;
+}
+
+
 // Turn Alex left "ang" degrees at speed "speed".
 // "speed" is expressed as a percentage. E.g. 50 is
 // turn left at half speed.
@@ -446,7 +472,14 @@ void left(float ang, float speed)
   dir = LEFT;
   
   int val = pwmVal(speed);
-
+  
+  if (ang == 0)
+    deltaTicks = 99999999;
+  else
+    deltaTicks = computeDeltaTicks(ang);
+  
+  targetTicks = leftReverseTicksTurns + deltaTicks;
+  
   // For now we will ignore ang. We will fix this in Week 9.
   // We will also replace this code with bare-metal later.
   // To turn left we reverse the left wheel and move
@@ -467,6 +500,13 @@ void right(float ang, float speed)
   dir = RIGHT;
   
   int val = pwmVal(speed);
+
+  if (ang == 0)
+    deltaTicks = 99999999;
+  else
+    deltaTicks = computeDeltaTicks(ang);
+  
+  targetTicks = rightReverseTicksTurns + deltaTicks;
 
   // For now we will ignore ang. We will fix this in Week 9.
   // We will also replace this code with bare-metal later.
@@ -617,6 +657,10 @@ void setup() {
   enablePullups();
   initializeState();
   sei();
+  
+  // Compute the diagonal
+  AlexDiagonal = sqrt((ALEX_LENGTH * ALEX_LENGTH) + (ALEX_BREADTH * ALEX_BREADTH));
+  AlexCirc = PI * AlexDiagonal;
 }
 
 void handlePacket(TPacket *packet)
@@ -651,16 +695,17 @@ void loop() {
 //  delay(1000);
 // Uncomment the code below for Week 9 Studio 2
 
+  // Code to stop motor once the forwardDist by encoders exceed newDist input by USER
   if (deltaDist > 0){
     if (dir == FORWARD){
-      if (forwardDist > newDist){
+      if (forwardDist >= newDist){
         deltaDist = 0;
         newDist = 0;
         stop();
       }
     } else {
       if (dir == BACKWARD){
-        if (reverseDist > newDist){
+        if (reverseDist >= newDist){
           deltaDist = 0;
           newDist = 0;
           stop();
@@ -674,6 +719,29 @@ void loop() {
       }
     }
   }
+  
+  if (deltaTicks > 0) {
+    if (dir == LEFT) {
+      if (leftReverseTicksTurns >= targetTicks) {
+        deltaTicks = 0;
+        targetTicks = 0;
+        stop();
+      }
+    }
+    else if (dir == RIGHT) {
+      if (rightReverseTicksTurns >= targetTicks) {
+        deltaTicks = 0;
+        targetTicks = 0;
+        stop();
+      }
+    }
+    else if (dir == STOP) {
+      deltaTicks = 0;
+      targetTicks = 0;
+      stop();
+    }
+  }
+  
  // put your main code here, to run repeatedly:
   TPacket recvPacket; // This holds commands from the Pi
 
