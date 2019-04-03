@@ -2,4 +2,4 @@
 source_root_dir = "/home/pi/Desktop/w9s1_ros_tutorial/src"
 whitelisted_packages = "".split(';') if "" != "" else []
 blacklisted_packages = "".split(';') if "" != "" else []
-underlay_workspaces = "/opt/ros/kinetic".split(';') if "/opt/ros/kinetic" != "" else []
+underlay_workspaces = "/home/pi/Desktop/w9s1_slam/devel;/opt/ros/kinetic".split(';') if "/home/pi/Desktop/w9s1_slam/devel;/opt/ros/kinetic" != "" else []

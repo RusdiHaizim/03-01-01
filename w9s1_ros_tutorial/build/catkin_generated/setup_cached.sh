@@ -8,6 +8,9 @@
 
 # modified environment variables
 export CMAKE_PREFIX_PATH="/home/pi/Desktop/w9s1_ros_tutorial/devel:$CMAKE_PREFIX_PATH"
+export LD_LIBRARY_PATH="/home/pi/Desktop/w9s1_ros_tutorial/devel/lib:$LD_LIBRARY_PATH"
+export PKG_CONFIG_PATH="/home/pi/Desktop/w9s1_ros_tutorial/devel/lib/pkgconfig:$PKG_CONFIG_PATH"
 export PWD="/home/pi/Desktop/w9s1_ros_tutorial/build"
-export ROSLISP_PACKAGE_DIRECTORIES="/home/pi/Desktop/w9s1_ros_tutorial/devel/share/common-lisp"
+export PYTHONPATH="/home/pi/Desktop/w9s1_ros_tutorial/devel/lib/python2.7/dist-packages:$PYTHONPATH"
+export ROSLISP_PACKAGE_DIRECTORIES="/home/pi/Desktop/w9s1_ros_tutorial/devel/share/common-lisp:$ROSLISP_PACKAGE_DIRECTORIES"
 export ROS_PACKAGE_PATH="/home/pi/Desktop/w9s1_ros_tutorial/src:$ROS_PACKAGE_PATH"
