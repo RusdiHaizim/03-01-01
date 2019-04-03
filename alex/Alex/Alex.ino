@@ -89,10 +89,10 @@ void putArduinoToIdle()
 
 // Motor control pins. You need to adjust these till
 // Alex moves in the correct direction
-#define LF                  6   // Left forward pin
-#define LR                  5   // Left reverse pin
-#define RF                  10  // Right forward pin
-#define RR                  11  // Right reverse pin
+#define LF                  6   // Left forward pin || AIN2
+#define LR                  5   // Left reverse pin || AIN1
+#define RF                  10  // Right forward pin|| BIN2
+#define RR                  11  // Right reverse pin|| BIN1
 /*
  *    Alex's State Variables
  */
@@ -708,7 +708,9 @@ void waitForHello()
 
 void setup() {
   // put your setup code here, to run once:
-
+  AlexDiagonal = sqrt((ALEX_LENGTH * ALEX_LENGTH) + (ALEX_BREADTH * ALEX_BREADTH));
+  AlexCirc = PI * AlexDiagonal;
+  
   cli();
   setupEINT();
   setupSerial();
@@ -718,10 +720,8 @@ void setup() {
   enablePullups();
   initializeState();
   sei();
-  setupPowerSaving();  
-  // Compute the diagonal
-  AlexDiagonal = sqrt((ALEX_LENGTH * ALEX_LENGTH) + (ALEX_BREADTH * ALEX_BREADTH));
-  AlexCirc = PI * AlexDiagonal;
+  setupPowerSaving();
+  
 }
 
 void handlePacket(TPacket *packet)
