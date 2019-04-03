@@ -2,6 +2,17 @@
 #include <math.h>
 #include "packet.h"
 #include "constants.h"
+#include <avr/sleep.h>
+
+#define PRR_TWI_MASK 0b10000000
+#define PRR_SPI_MASK 0b00000100
+#define ADCSRA_ADC_MASK 0b10000000
+#define PRR_ADC_MASK 0b00000001
+#define PRR_TIMER2_MASK 0b01000000
+#define PRR_TIMER0_MASK 0b00100000
+#define PRR_TIMER1_MASK 0b00001000
+#define SMCR_SLEEP_ENABLE_MASK 0b00000001
+#define SMCR_IDLE_MODE_MASK 0b11110001
 
 typedef enum {
   STOP=0,
@@ -12,6 +23,56 @@ typedef enum {
 } TDirection;
 
 volatile TDirection dir = STOP;
+
+
+void WDT_off(void) {
+  /* Global interrupt should be turned OFF here if not already done so */
+  /* Clear WDRF in MCUSR */
+  MCUSR &= ~(1<<WDRF);
+  /* Write logical one to WDCE and WDE */
+  /* Keep old prescaler setting to prevent unintentional time-out */
+  WDTCSR |= (1<<WDCE) | (1<<WDE);
+  /* Turn off WDT */
+  WDTCSR = 0x00;
+  /* Global interrupt should be turned ON here if subsequent operations after calling this function do not require turning off global interrupt */
+}
+
+void setupPowerSaving()
+{
+  // Turn off the Watchdog Timer
+  WDT_off();
+  // Modify PRR to shut down TWI
+  PRR |= 0b10000000;
+  // Modify PRR to shut down SPI
+  PRR |= 0b00000100;
+  // Modify ADCSRA to disable ADC,
+  ADCSRA &= 0b01111111;
+  // then modify PRR to shut down ADC
+  PRR |= 0b00000001;
+  // Set the SMCR to choose the IDLE sleep mode
+  // Do not set the Sleep Enable (SE) bit yet
+  SMCR |= 0b00000000;
+  // Set Port B Pin 5 as output pin, then write a logic LOW
+  // to it so that the LED tied to Arduino's Pin 13 is OFF.
+  DDRB |= 0b00100000; //pinMode to set to output
+  PORTB &= 0b11011111; //analogwrite to set to LOW
+}
+
+//Cancer code
+void putArduinoToIdle()
+{
+  // Modify PRR to shut down TIMER 0, 1, and 2
+  PRR |= (PRR_TIMER0_MASK | PRR_TIMER1_MASK | PRR_TIMER2_MASK);
+  // Modify SE bit in SMCR to enable (i.e., allow) sleep
+  SMCR |= SMCR_SLEEP_ENABLE_MASK;
+  // This function puts ATmega328P’s MCU into sleep
+  sleep_cpu();
+  // Modify SE bit in SMCR to disable (i.e., disallow) sleep
+  SMCR &= ~SMCR_SLEEP_ENABLE_MASK;
+  // Modify PRR to power up TIMER 0, 1, and 2
+  PRR &= (~PRR_TIMER0_MASK & ~PRR_TIMER1_MASK & ~PRR_TIMER2_MASK);
+}
+
 
 /*
  * Alex's configuration constants
@@ -416,8 +477,8 @@ void forward(float dist, float speed)
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
   
-  analogWrite(LF, powerL);
-  analogWrite(RF, powerR);
+  analogWrite(LF, val);
+  analogWrite(RF, val);
   analogWrite(LR,0);
   analogWrite(RR, 0);
 }
@@ -447,8 +508,8 @@ void reverse(float dist, float speed)
   // LF = Left forward pin, LR = Left reverse pin
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
-  analogWrite(LR, powerL);
-  analogWrite(RR, powerR);
+  analogWrite(LR, val);
+  analogWrite(RR, val);
   analogWrite(LF, 0);
   analogWrite(RF, 0);
 }
@@ -657,7 +718,7 @@ void setup() {
   enablePullups();
   initializeState();
   sei();
-  
+  setupPowerSaving();  
   // Compute the diagonal
   AlexDiagonal = sqrt((ALEX_LENGTH * ALEX_LENGTH) + (ALEX_BREADTH * ALEX_BREADTH));
   AlexCirc = PI * AlexDiagonal;
@@ -689,7 +750,7 @@ void loop() {
 
 // Uncomment the code below for Step 2 of Activity 3 in Week 8 Studio 2
 
-//  forward(0, 100);
+ // forward(0, 100);
 //  delay(1000);
 //  stop();
 //  delay(1000);
@@ -757,6 +818,8 @@ void loop() {
   {
     sendBadChecksum();
   } 
-      
+  else if (result == PACKET_INCOMPLETE && dir == STOP) {
+    putArduinoToIdle();
+  }
   
 }
