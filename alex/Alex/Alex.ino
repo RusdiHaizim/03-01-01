@@ -281,9 +281,17 @@ void enablePullups()
   PORTD |= 0b00001100;
 }
 
+volatile float ratio = 0.93;
+volatile float error = 0, integral = 0;
+const float Kp = -0.002, Ki = -0.0001;
+volatile int leftWheelDiff = 0;
+volatile int rightWheelDiff = 0; 
+
+
 // Functions to be called by INT0 and INT1 ISRs.
 void leftISR()
 {
+  leftWheelDiff++;
   //leftForwardTicks++;
   if (dir==FORWARD) {
     leftForwardTicks++;
@@ -299,7 +307,15 @@ void leftISR()
   else if (dir==RIGHT) {
     leftForwardTicksTurns++;
   }
-
+  if (leftWheelDiff == 25) {
+    if (dir == FORWARD || dir == BACKWARD) {
+      error = rightWheelDiff - leftWheelDiff;
+      //integral += error;
+      //ratio += (error*Kp > 0.01 ? error*Kp*0.01 : 0.01) + integral*Ki;
+      ratio = (COUNTS_PER_REV - error) / (float)COUNTS_PER_REV;
+    }
+    leftWheelDiff = rightWheelDiff = 0;
+  }
   //leftRevs = leftForwardTicks / COUNTS_PER_REV;
 
   // We calculate forwardDist only in leftISR because we
@@ -315,6 +331,7 @@ void leftISR()
 
 void rightISR()
 {
+  rightWheelDiff++;
   //rightForwardTicks++;
   if (dir==FORWARD) {
     rightForwardTicks++;
@@ -327,6 +344,15 @@ void rightISR()
   }
   else if (dir==RIGHT) {
     rightReverseTicksTurns++;
+  }
+  if (rightWheelDiff == 25) {
+    if (dir == FORWARD || dir == BACKWARD) {
+      error = rightWheelDiff - leftWheelDiff;
+      //integral += error;
+      //ratio += (error*Kp < -0.01 ? error*Kp*-0.01 : -0.01) + integral*Ki;
+      ratio = (COUNTS_PER_REV - error) / (float)COUNTS_PER_REV;
+    }
+    leftWheelDiff = rightWheelDiff = 0;
   }
 
   //rightRevs = rightForwardTicks / COUNTS_PER_REV;
@@ -478,7 +504,7 @@ void forward(float dist, float speed)
   // This will be replaced later with bare-metal code.
   
   analogWrite(LF, val);
-  analogWrite(RF, val);
+  analogWrite(RF, val * ratio);
   analogWrite(LR,0);
   analogWrite(RR, 0);
 }
@@ -821,5 +847,6 @@ void loop() {
   else if (result == PACKET_INCOMPLETE && dir == STOP) {
     putArduinoToIdle();
   }
-  
+  Serial.println(ratio);
+  Serial.println(leftWheelDiff);
 }
