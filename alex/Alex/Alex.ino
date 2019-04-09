@@ -89,10 +89,15 @@ void putArduinoToIdle()
 
 // Motor control pins. You need to adjust these till
 // Alex moves in the correct direction
-#define LF                  6   // Left forward pin || AIN2
-#define LR                  5   // Left reverse pin || AIN1
-#define RF                  10  // Right forward pin|| BIN2
-#define RR                  11  // Right reverse pin|| BIN1
+//#define LF                  6   // Left forward pin || AIN2
+//#define LR                  5   // Left reverse pin || AIN1
+//#define RF                  10  // Right forward pin|| BIN2
+//#define RR                  11  // Right reverse pin|| BIN1
+#define LR                  6   // Left forward pin || AIN2
+#define LF                  5   // Left reverse pin || AIN1
+#define RR                  10  // Right forward pin|| BIN2
+#define RF                  11  // Right reverse pin|| BIN1
+
 /*
  *    Alex's State Variables
  */
@@ -281,9 +286,9 @@ void enablePullups()
   PORTD |= 0b00001100;
 }
 
-volatile float ratio = 0.93;
+volatile float ratio = 0.95;
 volatile float error = 0, integral = 0;
-const float Kp = -0.002, Ki = -0.0001;
+const float Kp = -0.004, Ki = -0.0002;
 volatile int leftWheelDiff = 0;
 volatile int rightWheelDiff = 0; 
 
@@ -302,17 +307,19 @@ void leftISR()
     reverseDist = (unsigned long) ((float)leftReverseTicks / COUNTS_PER_REV * WHEEL_CIRC);
   }
   else if (dir==LEFT) {
-    leftReverseTicksTurns++;
+    //leftReverseTicksTurns++;
+    leftForwardTicksTurns++;
   }
   else if (dir==RIGHT) {
-    leftForwardTicksTurns++;
+    //leftForwardTicksTurns++;
+    leftReverseTicksTurns++;
   }
   if (leftWheelDiff == 25) {
     if (dir == FORWARD || dir == BACKWARD) {
       error = rightWheelDiff - leftWheelDiff;
-      //integral += error;
-      //ratio += (error*Kp > 0.01 ? error*Kp*0.01 : 0.01) + integral*Ki;
-      ratio = (COUNTS_PER_REV - error) / (float)COUNTS_PER_REV;
+      integral += error;
+      ratio += (error*Kp > 0.01 ? error*Kp*0.01 : 0.01) + integral*Ki;
+    
     }
     leftWheelDiff = rightWheelDiff = 0;
   }
@@ -340,17 +347,19 @@ void rightISR()
     rightReverseTicks++;
   }
   else if (dir==LEFT) {
-    rightForwardTicksTurns++;
+    //rightForwardTicksTurns++;
+    rightReverseTicksTurns++;
   }
   else if (dir==RIGHT) {
-    rightReverseTicksTurns++;
+    //rightReverseTicksTurns++;
+    rightForwardTicksTurns++;
   }
   if (rightWheelDiff == 25) {
     if (dir == FORWARD || dir == BACKWARD) {
       error = rightWheelDiff - leftWheelDiff;
-      //integral += error;
-      //ratio += (error*Kp < -0.01 ? error*Kp*-0.01 : -0.01) + integral*Ki;
-      ratio = (COUNTS_PER_REV - error) / (float)COUNTS_PER_REV;
+      integral += error;
+      ratio += (error*Kp < -0.01 ? error*Kp*-0.01 : -0.01) + integral*Ki;
+      
     }
     leftWheelDiff = rightWheelDiff = 0;
   }
@@ -481,9 +490,9 @@ int pwmVal(float speed)
 // move forward at half speed.
 // Specifying a distance of 0 means Alex will
 // continue moving forward indefinitely.
-void forward(float dist, float speed)
+void reverse(float dist, float speed)
 {
-  dir = FORWARD;
+  dir = BACKWARD;
   
   int val = pwmVal(speed);
   int powerL = val;
@@ -504,7 +513,7 @@ void forward(float dist, float speed)
   // This will be replaced later with bare-metal code.
   
   analogWrite(LF, val);
-  analogWrite(RF, val * ratio);
+  analogWrite(RF, val * 0.95);
   analogWrite(LR,0);
   analogWrite(RR, 0);
 }
@@ -514,9 +523,9 @@ void forward(float dist, float speed)
 // reverse at half speed.
 // Specifying a distance of 0 means Alex will
 // continue reversing indefinitely.
-void reverse(float dist, float speed)
+void forward(float dist, float speed)
 {
-  dir = BACKWARD;
+  dir = FORWARD;
   
   int val = pwmVal(speed);
   int powerL = val;
@@ -535,7 +544,7 @@ void reverse(float dist, float speed)
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
   analogWrite(LR, val);
-  analogWrite(RR, val);
+  analogWrite(RR, val*0.95);
   analogWrite(LF, 0);
   analogWrite(RF, 0);
 }
@@ -554,9 +563,9 @@ unsigned long computeDeltaTicks(float ang) {
 // turn left at half speed.
 // Specifying an angle of 0 degrees will cause Alex to
 // turn left indefinitely.
-void left(float ang, float speed)
+void right(float ang, float speed) //DONT USE RIGHT!!!
 {
-  dir = LEFT;
+  dir = RIGHT;
   
   int val = pwmVal(speed);
   
@@ -571,7 +580,7 @@ void left(float ang, float speed)
   // We will also replace this code with bare-metal later.
   // To turn left we reverse the left wheel and move
   // the right wheel forward.
-  analogWrite(LR, val);
+  analogWrite(LR, val*1.15); //LR by right should turn left, but we made it turn right
   analogWrite(RF, val);
   analogWrite(LF, 0);
   analogWrite(RR, 0);
@@ -582,9 +591,9 @@ void left(float ang, float speed)
 // turn left at half speed.
 // Specifying an angle of 0 degrees will cause Alex to
 // turn right indefinitely.
-void right(float ang, float speed)
+void left(float ang, float speed)
 {
-  dir = RIGHT;
+  dir = LEFT;
   
   int val = pwmVal(speed);
 
@@ -600,7 +609,7 @@ void right(float ang, float speed)
   // To turn right we reverse the right wheel and move
   // the left wheel forward.
   analogWrite(RR, val);
-  analogWrite(LF, val);
+  analogWrite(LF, val*0.95);
   analogWrite(LR, 0);
   analogWrite(RF, 0);
 }
@@ -747,7 +756,7 @@ void setup() {
   initializeState();
   sei();
   setupPowerSaving();
-  
+  //dir = BACKWARD;
 }
 
 void handlePacket(TPacket *packet)
@@ -790,32 +799,30 @@ void loop() {
         newDist = 0;
         stop();
       }
-    } else {
+    } 
       if (dir == BACKWARD){
         if (reverseDist >= newDist){
           deltaDist = 0;
           newDist = 0;
           stop();
         }
-      } else {
-        if (dir == STOP){
+      }
+      if (dir == STOP){
           deltaDist = 0;
           newDist = 0;
           stop();
-        }
       }
     }
-  }
   
   if (deltaTicks > 0) {
-    if (dir == LEFT) {
+    if (dir == RIGHT) {
       if (leftReverseTicksTurns >= targetTicks) {
         deltaTicks = 0;
         targetTicks = 0;
         stop();
       }
     }
-    else if (dir == RIGHT) {
+    else if (dir == LEFT) {
       if (rightReverseTicksTurns >= targetTicks) {
         deltaTicks = 0;
         targetTicks = 0;
@@ -847,6 +854,13 @@ void loop() {
   else if (result == PACKET_INCOMPLETE && dir == STOP) {
     putArduinoToIdle();
   }
-  Serial.println(ratio);
-  Serial.println(leftWheelDiff);
+  //Serial.println(ratio,5); //comment out when running on arduino
+//  Serial.print("Left: ");
+//  Serial.print(leftWheelDiff);
+//  Serial.print(" Right: ");
+//  Serial.print(rightWheelDiff);
+//  Serial.print(" ratio: ");
+//  Serial.println(ratio);
+//  delay(5);
+  //Serial.println(error);
 }
