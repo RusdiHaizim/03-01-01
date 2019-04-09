@@ -89,14 +89,14 @@ void putArduinoToIdle()
 
 // Motor control pins. You need to adjust these till
 // Alex moves in the correct direction
-//#define LF                  6   // Left forward pin || AIN2
-//#define LR                  5   // Left reverse pin || AIN1
-//#define RF                  10  // Right forward pin|| BIN2
-//#define RR                  11  // Right reverse pin|| BIN1
-#define LR                  6   // Left forward pin || AIN2
-#define LF                  5   // Left reverse pin || AIN1
-#define RR                  10  // Right forward pin|| BIN2
-#define RF                  11  // Right reverse pin|| BIN1
+#define LF                  6   // Left forward pin || AIN2
+#define LR                  5   // Left reverse pin || AIN1
+#define RF                  10  // Right forward pin|| BIN2
+#define RR                  11  // Right reverse pin|| BIN1
+//#define LR                  6   // Left forward pin || AIN2
+//#define LF                  5   // Left reverse pin || AIN1
+//#define RR                  10  // Right forward pin|| BIN2
+//#define RF                  11  // Right reverse pin|| BIN1
 
 /*
  *    Alex's State Variables
@@ -297,7 +297,6 @@ volatile int rightWheelDiff = 0;
 void leftISR()
 {
   leftWheelDiff++;
-  //leftForwardTicks++;
   if (dir==FORWARD) {
     leftForwardTicks++;
     forwardDist = (unsigned long) ((float)leftForwardTicks / COUNTS_PER_REV * WHEEL_CIRC);
@@ -307,12 +306,12 @@ void leftISR()
     reverseDist = (unsigned long) ((float)leftReverseTicks / COUNTS_PER_REV * WHEEL_CIRC);
   }
   else if (dir==LEFT) {
-    //leftReverseTicksTurns++;
-    leftForwardTicksTurns++;
+    leftReverseTicksTurns++;
+    //leftForwardTicksTurns++;
   }
   else if (dir==RIGHT) {
-    //leftForwardTicksTurns++;
-    leftReverseTicksTurns++;
+    leftForwardTicksTurns++;
+    //leftReverseTicksTurns++;
   }
   if (leftWheelDiff == 25) {
     if (dir == FORWARD || dir == BACKWARD) {
@@ -342,17 +341,19 @@ void rightISR()
   //rightForwardTicks++;
   if (dir==FORWARD) {
     rightForwardTicks++;
+    //rightReverseTicks++;
   }
   else if (dir==BACKWARD) {
     rightReverseTicks++;
+    //rightForwardTicks++;
   }
   else if (dir==LEFT) {
-    //rightForwardTicksTurns++;
-    rightReverseTicksTurns++;
+    rightForwardTicksTurns++;
+    //rightReverseTicksTurns++;
   }
   else if (dir==RIGHT) {
-    //rightReverseTicksTurns++;
-    rightForwardTicksTurns++;
+    rightReverseTicksTurns++;
+    //rightForwardTicksTurns++;
   }
   if (rightWheelDiff == 25) {
     if (dir == FORWARD || dir == BACKWARD) {
@@ -502,7 +503,7 @@ void reverse(float dist, float speed)
   else 
     deltaDist = dist;
     
-  newDist = forwardDist + deltaDist;
+  newDist = reverseDist + deltaDist;
 
   // For now we will ignore dist and move
   // forward indefinitely. We will fix this
@@ -512,10 +513,14 @@ void reverse(float dist, float speed)
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
   
-  analogWrite(LF, val);
-  analogWrite(RF, val * 0.95);
-  analogWrite(LR,0);
-  analogWrite(RR, 0);
+//  analogWrite(LF, val);
+//  analogWrite(RF, val * 0.95);
+//  analogWrite(LR,0);
+//  analogWrite(RR, 0);
+  analogWrite(LR, val);
+  analogWrite(RR, val*0.95);
+  analogWrite(LF,0);
+  analogWrite(RF, 0);
 }
 
 // Reverse Alex "dist" cm at speed "speed".
@@ -543,10 +548,14 @@ void forward(float dist, float speed)
   // LF = Left forward pin, LR = Left reverse pin
   // RF = Right forward pin, RR = Right reverse pin
   // This will be replaced later with bare-metal code.
-  analogWrite(LR, val);
-  analogWrite(RR, val*0.95);
-  analogWrite(LF, 0);
-  analogWrite(RF, 0);
+//  analogWrite(LR, val);
+//  analogWrite(RR, val*0.95);
+//  analogWrite(LF, 0);
+//  analogWrite(RF, 0);
+  analogWrite(LF, val);
+  analogWrite(RF, val*0.95);
+  analogWrite(LR,0);
+  analogWrite(RR, 0);
 }
 
 // New function to estimate number of wheel ticks
@@ -574,16 +583,39 @@ void right(float ang, float speed) //DONT USE RIGHT!!!
   else
     deltaTicks = computeDeltaTicks(ang);
   
-  targetTicks = leftReverseTicksTurns + deltaTicks;
+  targetTicks = rightReverseTicksTurns + deltaTicks;
   
   // For now we will ignore ang. We will fix this in Week 9.
   // We will also replace this code with bare-metal later.
   // To turn left we reverse the left wheel and move
   // the right wheel forward.
-  analogWrite(LR, val*1.15); //LR by right should turn left, but we made it turn right
-  analogWrite(RF, val);
-  analogWrite(LF, 0);
-  analogWrite(RR, 0);
+//  analogWrite(LR, val*1.15); //LR by right should turn left, but we made it turn right
+//  analogWrite(RF, val);
+//  analogWrite(LF, 0);
+//  analogWrite(RR, 0);
+  float Lratio = 1;
+  if (ang == 90) {
+    Lratio *= 1.25;
+  }
+  else if (ang == 180) {
+    Lratio *= 1.28;
+  }
+  else if (ang == 360) {
+    //Lratio *= 1.34;
+  }
+  else {
+    Lratio *= 1;
+  }
+
+
+  analogWrite(RR, val);
+  analogWrite(LF, (val*Lratio));
+  analogWrite(RF, 0);
+  analogWrite(LR, 0);
+  /* 90 - scale by 1.21 for both
+   * 180 - scale by 1.25 for both?
+   * 360 - scale by
+   */
 }
 
 // Turn Alex right "ang" degrees at speed "speed".
@@ -602,16 +634,39 @@ void left(float ang, float speed)
   else
     deltaTicks = computeDeltaTicks(ang);
   
-  targetTicks = rightReverseTicksTurns + deltaTicks;
+  targetTicks = leftReverseTicksTurns + deltaTicks;
 
   // For now we will ignore ang. We will fix this in Week 9.
   // We will also replace this code with bare-metal later.
   // To turn right we reverse the right wheel and move
   // the left wheel forward.
-  analogWrite(RR, val);
-  analogWrite(LF, val*0.95);
-  analogWrite(LR, 0);
-  analogWrite(RF, 0);
+//  analogWrite(RR, val);
+//  analogWrite(LF, val*0.95);
+//  analogWrite(LR, 0);
+//  analogWrite(RF, 0);
+  float Rratio = 1;
+  if (ang == 90) {
+    Rratio *= 0.85855;
+  }
+  else if (ang == 180) {
+    Rratio *= 0.92555;
+  }
+  else if (ang == 360) {
+    Rratio *= 0.98;
+  }
+  else {
+    Rratio *= 1;
+  }
+
+
+  analogWrite(LR, val);
+  analogWrite(RF, val*Rratio);
+  analogWrite(RR, 0);
+  analogWrite(LF, 0);
+  /* 90 - scale by 0.86?
+   * 180 - scale by 0.93
+   * 360 - scale by
+   */
 }
 
 // Stop Alex. To replace with bare-metal code later.
@@ -815,14 +870,14 @@ void loop() {
     }
   
   if (deltaTicks > 0) {
-    if (dir == RIGHT) {
+    if (dir == LEFT) {
       if (leftReverseTicksTurns >= targetTicks) {
         deltaTicks = 0;
         targetTicks = 0;
         stop();
       }
     }
-    else if (dir == LEFT) {
+    else if (dir == RIGHT) {
       if (rightReverseTicksTurns >= targetTicks) {
         deltaTicks = 0;
         targetTicks = 0;
