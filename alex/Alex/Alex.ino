@@ -23,6 +23,7 @@
 volatile int TCS230_frequency = 0; //TCS230 frequency
 volatile int TCS230_red = 0, TCS230_green = 0, TCS230_blue = 0;
 
+/*
 void setup_TCS230(){
   pinMode(TCS230_s0, OUTPUT);
   pinMode(TCS230_s1, OUTPUT);
@@ -74,7 +75,7 @@ void TCS230_run(){
 //    Serial.println("red"); 
   }
 } 
-
+*/
 /* iR bool */
 volatile bool isHitLeft = false;
 volatile bool isHitRight = false;
@@ -451,11 +452,18 @@ ISR(ADC_vect) {
   unsigned int loval = ADCL;
   unsigned int hival = ADCH;
   unsigned int adcvalue = (hival << 8) + loval;
+  //Serial.println("test");
   switch (ADMUX) {
     //left INFRA
     case 0b01000000:
-      if (adcvalue < 50) isHitLeft = true;
-      else isHitLeft = false;
+      if (adcvalue < 50) {
+        isHitLeft = true;
+        //Serial.println("hit");
+      }
+      else {
+        //Serial.println("nothit");
+        isHitLeft = false;
+      }
       ADMUX = 0b01000001;
       break;
     //right INFRA
@@ -483,7 +491,6 @@ ISR(ADC_vect) {
       ADMUX = 0b01000000;
       break;
   }
-  ADCSRA |= 0b01000000;
   if (isHitFront) {
     stop();
     if (!isSent) {
@@ -503,6 +510,7 @@ ISR(ADC_vect) {
       isSent = true; 
     }
   }
+  ADCSRA |= 0b01000000;
 }
 
 
@@ -932,24 +940,25 @@ void setup() {
   // put your setup code here, to run once:
   AlexDiagonal = sqrt((ALEX_LENGTH * ALEX_LENGTH) + (ALEX_BREADTH * ALEX_BREADTH));
   AlexCirc = PI * AlexDiagonal;
-  
+ 
   cli();
   setupEINT();
   setupSerial();
   startSerial();
+  
   setupMotors();
   startMotors();
   enablePullups();
   initializeState();
   /* Color Sensor */
-  setup_TCS230();
+  //setup_TCS230();
   /* iR */
   setupADC();
   startADC();
   /*Power Saving*/
-  setupPowerSaving();
+  //setupPowerSaving();
   sei();
-  
+  DDRC &= ~(0b00000001);
   //dir = BACKWARD;
 }
 
@@ -1046,7 +1055,7 @@ void loop() {
     sendBadChecksum();
   } 
   else if (result == PACKET_INCOMPLETE && dir == STOP) {
-    putArduinoToIdle();
+    //putArduinoToIdle();
   }
   //Serial.println(ratio,5); //comment out when running on arduino
 //  Serial.print("Left: ");
@@ -1057,4 +1066,6 @@ void loop() {
 //  Serial.println(ratio);
 //  delay(5);
   //Serial.println(error);
+  //if (PINC & 0b00000001) Serial.println("HIT");
+  //Serial.println("loop");
 }

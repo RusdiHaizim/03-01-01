@@ -254,6 +254,10 @@ void sendCommand(char command)
 		case 'D':
 			commandPacket.command = COMMAND_D;
 			sendPacket(&commandPacket);
+		case 'd':
+		case 'D':
+			commandPacket.command = COMMAND_D;
+			sendPacket(&commandPacket);
 		default:
 			printf("Bad command\n");
 
