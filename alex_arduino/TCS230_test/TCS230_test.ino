@@ -1,20 +1,10 @@
-#define TCS230_s0 4 //TCS 230 led
-#define TCS230_s1 5 //TCS230 led
-#define TCS230_s2 6 // TCS230 led
-#define TCS230_s3 7 // TCS230 led 
-#define TCS230_out 8 //input from TCS230
-int TCS230_frequency = 0; //TCS230 frequency
-int TCS230_red = 0, TCS230_green = 0, TCS230_blue = 0;
-void setup() {
-  // put your setup code here, to run once:
-  setup_TCS230();
-  Serial.begin(9600);
-}
-
-void loop() {
-  // put your main code here, to run repeatedly:
-  TCS230_run();
-}
+#define TCS230_s0 7 //TCS 230 led
+#define TCS230_s1 8 //TCS230 led
+#define TCS230_s2 12 // TCS230 led
+#define TCS230_s3 13 // TCS230 led 
+#define TCS230_out 4 //input from TCS230
+volatile int TCS230_frequency = 0; //TCS230 frequency
+volatile int TCS230_red = 0, TCS230_green = 0, TCS230_blue = 0;
 
 void setup_TCS230(){
   pinMode(TCS230_s0, OUTPUT);
@@ -26,6 +16,13 @@ void setup_TCS230(){
   digitalWrite(TCS230_s0,HIGH);
   digitalWrite(TCS230_s1,LOW);  
 }
+
+void setup() {
+  // put your setup code here, to run once:
+  setup_TCS230();
+  Serial.begin(9600);
+}
+
 void TCS230_run(){
   //set red filtered photodiodes to be read
   digitalWrite(TCS230_s2,LOW);
@@ -65,5 +62,11 @@ void TCS230_run(){
   } else if (abs(TCS230_red - 255) < 30 && abs(TCS230_green - 255) > 70 && abs(TCS230_blue - 255) > 70){
     Serial.println("red"); 
   }
-  return 0;
 }
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  TCS230_run();
+}
+
+

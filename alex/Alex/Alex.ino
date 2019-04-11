@@ -14,6 +14,72 @@
 #define SMCR_SLEEP_ENABLE_MASK 0b00000001
 #define SMCR_IDLE_MODE_MASK 0b11110001
 
+/* Color Module */
+#define TCS230_s0 7 //TCS 230 led
+#define TCS230_s1 8 //TCS230 led
+#define TCS230_s2 12 // TCS230 led
+#define TCS230_s3 13 // TCS230 led 
+#define TCS230_out 4 //input from TCS230
+volatile int TCS230_frequency = 0; //TCS230 frequency
+volatile int TCS230_red = 0, TCS230_green = 0, TCS230_blue = 0;
+
+void setup_TCS230(){
+  pinMode(TCS230_s0, OUTPUT);
+  pinMode(TCS230_s1, OUTPUT);
+  pinMode(TCS230_s2, OUTPUT);
+  pinMode(TCS230_s3, OUTPUT);
+  pinMode(TCS230_out,INPUT);
+  //setting frequency scaling to 20%
+  digitalWrite(TCS230_s0,HIGH);
+  digitalWrite(TCS230_s1,LOW);  
+}
+
+void TCS230_run(){
+  //set red filtered photodiodes to be read
+  digitalWrite(TCS230_s2,LOW);
+  digitalWrite(TCS230_s3,LOW);
+  //read output frequency
+  TCS230_red = pulseIn(TCS230_out,LOW);
+  //map red 
+  TCS230_red = map(TCS230_red, 100, 500, 255, 0);
+  delay(100);  //check if time delay between each colour check is necessary
+  
+  //set green photodiodes to be read
+  digitalWrite(TCS230_s2,HIGH);
+  digitalWrite(TCS230_s3,HIGH);
+  //read output frequency
+  TCS230_green = pulseIn(TCS230_out,LOW);  
+  //map green
+  TCS230_green = map(TCS230_green,60,400,255,0);
+  delay(100);
+  
+  //set blue filtered photodiodes to be read
+  digitalWrite(TCS230_s2,LOW);
+  digitalWrite(TCS230_s3,HIGH);
+  //read output frequency
+  TCS230_blue = pulseIn(TCS230_out,LOW);
+  //map blue
+  TCS230_blue = map(TCS230_blue, 85, 490, 255, 0);
+  //print frequency values
+//  Serial.print("red ");
+//  Serial.println(TCS230_red);
+//  Serial.print("green ");
+//  Serial.println(TCS230_green);
+//  Serial.print("blue ");
+//  Serial.println(TCS230_blue);
+  //if all values are close to each other, colour is green
+  if (abs(TCS230_red - 255) < 30 && abs(TCS230_green - 255) < 30 && abs(TCS230_blue - 255) < 30){
+//    Serial.println("green"); 
+  } else if (abs(TCS230_red - 255) < 30 && abs(TCS230_green - 255) > 70 && abs(TCS230_blue - 255) > 70){
+//    Serial.println("red"); 
+  }
+} 
+
+/* iR bool */
+volatile bool isHitLeft = false;
+volatile bool isHitRight = false;
+volatile bool isHitFront = false;
+volatile bool isSent = false;
 typedef enum {
   STOP=0,
   FORWARD=1,
@@ -372,6 +438,75 @@ void rightISR()
   //Serial.println(rightForwardTicks);
 }
 
+void setupADC() {
+  PRR &= 0b11111110;
+  ADCSRA |= 0b10001111;
+  ADMUX |= 0b01000000;
+}
+void startADC() {
+  ADCSRA |= 0b01000000;
+}
+
+ISR(ADC_vect) {
+  unsigned int loval = ADCL;
+  unsigned int hival = ADCH;
+  unsigned int adcvalue = (hival << 8) + loval;
+  switch (ADMUX) {
+    //left INFRA
+    case 0b01000000:
+      if (adcvalue < 50) isHitLeft = true;
+      else isHitLeft = false;
+      ADMUX = 0b01000001;
+      break;
+    //right INFRA
+    case 0b01000001:
+      if (adcvalue < 50) isHitRight = true;
+      else isHitRight = false;
+      ADMUX = 0b01000010;
+      break;
+    //front INFRA?
+    case 0b01000010:
+      if (adcvalue < 50) isHitFront = true;
+      else isHitFront = false;
+      ADMUX = 0b01000011;
+      break;
+    case 0b01000011:
+      //
+      ADMUX = 0b01000100;
+      break;
+    case 0b01000100:
+      //
+      ADMUX = 0b01000101;
+      break;
+    case 0b01000101:
+      //
+      ADMUX = 0b01000000;
+      break;
+  }
+  ADCSRA |= 0b01000000;
+  if (isHitFront) {
+    stop();
+    if (!isSent) {
+      sendMessage("YOU GOT HIT.... HAhaha hahahah \n");
+      isSent = true;
+    }
+  }
+  if (isHitLeft) {
+    if (!isSent) {
+      sendMessage("my LEFT hurts \n");
+      isSent = true;
+    }
+  }
+  if (isHitRight) {
+    if (!isSent) {
+      sendMessage("my RIGHT hurts \n");
+      isSent = true; 
+    }
+  }
+}
+
+
+
 // Set up the external interrupt pins INT0 and INT1
 // for falling edge triggered. Use bare-metal.
 void setupEINT()
@@ -505,13 +640,6 @@ void reverse(float dist, float speed)
     
   newDist = reverseDist + deltaDist;
 
-  // For now we will ignore dist and move
-  // forward indefinitely. We will fix this
-  // in Week 9.
-
-  // LF = Left forward pin, LR = Left reverse pin
-  // RF = Right forward pin, RR = Right reverse pin
-  // This will be replaced later with bare-metal code.
   
 //  analogWrite(LF, val);
 //  analogWrite(RF, val * 0.95);
@@ -545,9 +673,6 @@ void forward(float dist, float speed)
     deltaDist = dist;
   newDist = forwardDist + deltaDist;
 
-  // LF = Left forward pin, LR = Left reverse pin
-  // RF = Right forward pin, RR = Right reverse pin
-  // This will be replaced later with bare-metal code.
 //  analogWrite(LR, val);
 //  analogWrite(RR, val*0.95);
 //  analogWrite(LF, 0);
@@ -585,10 +710,6 @@ void right(float ang, float speed) //DONT USE RIGHT!!!
   
   targetTicks = rightReverseTicksTurns + deltaTicks;
   
-  // For now we will ignore ang. We will fix this in Week 9.
-  // We will also replace this code with bare-metal later.
-  // To turn left we reverse the left wheel and move
-  // the right wheel forward.
 //  analogWrite(LR, val*1.15); //LR by right should turn left, but we made it turn right
 //  analogWrite(RF, val);
 //  analogWrite(LF, 0);
@@ -636,10 +757,7 @@ void left(float ang, float speed)
   
   targetTicks = leftReverseTicksTurns + deltaTicks;
 
-  // For now we will ignore ang. We will fix this in Week 9.
-  // We will also replace this code with bare-metal later.
-  // To turn right we reverse the right wheel and move
-  // the left wheel forward.
+
 //  analogWrite(RR, val);
 //  analogWrite(LF, val*0.95);
 //  analogWrite(LR, 0);
@@ -717,6 +835,7 @@ void initializeState()
 
 void handleCommand(TPacket *command)
 {
+  isSent = false;
   switch(command->command)
   {
     // For movement commands, param[0] = distance, param[1] = speed.
@@ -740,20 +859,33 @@ void handleCommand(TPacket *command)
         sendOK();
         stop();
       break;
-
-    /*
-     * Implement code for other commands here.
-     * 
-     */
-   case COMMAND_GET_STATS:
+    case COMMAND_GET_STATS:
         sendStatus();
         break;
-   case COMMAND_CLEAR_STATS:
+    case COMMAND_CLEAR_STATS:
         clearOneCounter(command->params[0]);
         sendOK();
         break;
-        
-        
+    case COMMAND_GET_COLOR:
+        sendOK();
+        //TCS230_run();
+        break;
+    case COMMAND_W:
+        sendOK();
+        forward((float) 10, (float) 75);
+        break;
+    case COMMAND_A:
+        sendOK();
+        left((float) 100, (float) 85);
+      break;
+    case COMMAND_S:
+        sendOK();
+        reverse((float) 10, (float) 75);
+      break;
+    case COMMAND_D:
+        sendOK();
+        right((float) 100, (float) 85);
+      break;
     default:
       sendBadCommand();
   }
@@ -809,8 +941,15 @@ void setup() {
   startMotors();
   enablePullups();
   initializeState();
-  sei();
+  /* Color Sensor */
+  setup_TCS230();
+  /* iR */
+  setupADC();
+  startADC();
+  /*Power Saving*/
   setupPowerSaving();
+  sei();
+  
   //dir = BACKWARD;
 }
 
