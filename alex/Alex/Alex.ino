@@ -490,7 +490,7 @@ ISR(ADC_vect) {
       break;
   }
   if (isHitFront) {
-    stop();
+    //stop();
     if (!isSent) {
       sendMessage("YOU GOT HIT.... HAhaha hahahah \n");
       isSent = true;

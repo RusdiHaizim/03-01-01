@@ -10,7 +10,7 @@
 #include "ncurses.h"
 #include <iostream>
 
-#define PORT_NAME			"/dev/ttyACM0"
+#define PORT_NAME			"/dev/ttyACM1"
 #define BAUD_RATE			B57600
 
 int exitFlag=0;
@@ -181,7 +181,8 @@ void WASD_movement(char cmd) {
 	initscr();
 	noecho();
 	cmd = getch();
-	while (cmd != 'z' || cmd != 'Z') {
+	while (cmd != 'z') {
+        usleep(100000);
 		switch(cmd)
 		{
 			case 'w':
@@ -220,6 +221,7 @@ void sendCommand(char command)
 
 	switch(command)
 	{
+        usleep(100000);
 		case 'f':
 		case 'F':
 			getParams(&commandPacket);
@@ -277,6 +279,10 @@ void sendCommand(char command)
 			commandPacket.command = COMMAND_GET_COLOR;
 			sendPacket(&commandPacket);
 			break;
+        case 'z':
+        case 'Z':
+            WASD_movement(command);
+            break;
 		default:
 			printf("Bad command\n");
 
@@ -309,6 +315,7 @@ int main()
 		char ch;
 		printf("Command: f=forward, b=reverse, l=turn left, r=turn right, x=stop\n");
 		printf("c=clear stats, g=get stats, q=exit, e=getcolor\n");
+        printf("z/Z=toggle WASD mode\n");
 		scanf("%c", &ch);
 
 		// Purge extraneous characters from input stream
@@ -317,6 +324,7 @@ int main()
 		sendCommand(ch);
 		else
 		WASD_movement(ch);
+        //usleep(100000);
 	}
 
 	printf("Closing connection to Arduino.\n");
