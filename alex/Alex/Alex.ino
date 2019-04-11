@@ -458,10 +458,8 @@ ISR(ADC_vect) {
     case 0b01000000:
       if (adcvalue < 50) {
         isHitLeft = true;
-        //Serial.println("hit");
       }
       else {
-        //Serial.println("nothit");
         isHitLeft = false;
       }
       ADMUX = 0b01000001;
@@ -499,12 +497,14 @@ ISR(ADC_vect) {
     }
   }
   if (isHitLeft) {
+    right(10, 75);
     if (!isSent) {
       sendMessage("my LEFT hurts \n");
       isSent = true;
     }
   }
   if (isHitRight) {
+    left(10, 75);
     if (!isSent) {
       sendMessage("my RIGHT hurts \n");
       isSent = true; 

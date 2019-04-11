@@ -7,6 +7,8 @@
 #include "serial.h"
 #include "serialize.h"
 #include "constants.h"
+#include "ncurses.h"
+#include <iostream>
 
 #define PORT_NAME			"/dev/ttyACM0"
 #define BAUD_RATE			B57600
@@ -54,11 +56,11 @@ void handleResponse(TPacket *packet)
 	{
 		case RESP_OK:
 			printf("Command OK\n");
-		break;
+			break;
 
 		case RESP_STATUS:
 			handleStatus(packet);
-		break;
+			break;
 
 		default:
 			printf("Alex is confused.\n");
@@ -72,19 +74,19 @@ void handleErrorResponse(TPacket *packet)
 	{
 		case RESP_BAD_PACKET:
 			printf("Arduino received bad magic number\n");
-		break;
+			break;
 
 		case RESP_BAD_CHECKSUM:
 			printf("Arduino received bad checksum\n");
-		break;
+			break;
 
 		case RESP_BAD_COMMAND:
 			printf("Arduino received bad command\n");
-		break;
+			break;
 
 		case RESP_BAD_RESPONSE:
 			printf("Arduino received unexpected response\n");
-		break;
+			break;
 
 		default:
 			printf("Arduino reports a weird error\n");
@@ -101,19 +103,19 @@ void handlePacket(TPacket *packet)
 	switch(packet->packetType)
 	{
 		case PACKET_TYPE_COMMAND:
-				// Only we send command packets, so ignore
+			// Only we send command packets, so ignore
 			break;
 
 		case PACKET_TYPE_RESPONSE:
-				handleResponse(packet);
+			handleResponse(packet);
 			break;
 
 		case PACKET_TYPE_ERROR:
-				handleErrorResponse(packet);
+			handleErrorResponse(packet);
 			break;
 
 		case PACKET_TYPE_MESSAGE:
-				handleMessage(packet);
+			handleMessage(packet);
 			break;
 	}
 }
@@ -171,6 +173,43 @@ void getParams(TPacket *commandPacket)
 	printf("E.g. 50 75 means go at 50 cm at 75%% power for forward/backward, or 50 degrees left or right turn at 75%%  power\n");
 	scanf("%d %d", &commandPacket->params[0], &commandPacket->params[1]);
 	flushInput();
+}
+
+void WASD_movement(char cmd) {
+	TPacket commandPacket;
+	commandPacket.packetType = PACKET_TYPE_COMMAND;
+	initscr();
+	noecho();
+	cmd = getch();
+	while (cmd != 'z' || cmd != 'Z') {
+		switch(cmd)
+		{
+			case 'w':
+			case 'W':
+				commandPacket.command = COMMAND_W;
+				sendPacket(&commandPacket);
+				break;
+			case 'a':
+			case 'A':
+				commandPacket.command = COMMAND_A;
+				sendPacket(&commandPacket);
+				break;
+			case 's':
+			case 'S':
+				commandPacket.command = COMMAND_S;
+				sendPacket(&commandPacket);
+				break;
+			case 'd':
+			case 'D':
+				commandPacket.command = COMMAND_D;
+				sendPacket(&commandPacket);
+				break;
+		}
+		std::cout << cmd << std::endl;
+		cmd = getch();
+	}
+	endwin();
+	clear();
 }
 
 void sendCommand(char command)
@@ -232,32 +271,12 @@ void sendCommand(char command)
 		case 'Q':
 			exitFlag=1;
 			break;
-		//NEW
+			//NEW
 		case 'e':
 		case 'E':
 			commandPacket.command = COMMAND_GET_COLOR;
 			sendPacket(&commandPacket);
 			break;
-		case 'w':
-		case 'W':
-			commandPacket.command = COMMAND_W;
-			sendPacket(&commandPacket);
-		case 'a':
-		case 'A':
-			commandPacket.command = COMMAND_A;
-			sendPacket(&commandPacket);
-		case 's':
-		case 'S':
-			commandPacket.command = COMMAND_S;
-			sendPacket(&commandPacket);
-		case 'd':
-		case 'D':
-			commandPacket.command = COMMAND_D;
-			sendPacket(&commandPacket);
-		case 'd':
-		case 'D':
-			commandPacket.command = COMMAND_D;
-			sendPacket(&commandPacket);
 		default:
 			printf("Bad command\n");
 
@@ -294,8 +313,10 @@ int main()
 
 		// Purge extraneous characters from input stream
 		flushInput();
-
+		if (ch != 'z' || ch != 'Z')
 		sendCommand(ch);
+		else
+		WASD_movement(ch);
 	}
 
 	printf("Closing connection to Arduino.\n");
