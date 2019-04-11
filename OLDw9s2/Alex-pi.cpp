@@ -122,8 +122,7 @@ void sendPacket(TPacket *packet)
 {
 	char buffer[PACKET_SIZE];
 	int len = serialize(buffer, packet, sizeof(TPacket));
-	//edit, e=getcolor in arduino
-	//also, wasd keys for incremental movement
+
 	serialWrite(buffer, len);
 }
 
@@ -209,8 +208,8 @@ void sendCommand(char command)
 			sendPacket(&commandPacket);
 			break;
 
-		case 'x':
-		case 'X':
+		case 's':
+		case 'S':
 			commandPacket.command = COMMAND_STOP;
 			sendPacket(&commandPacket);
 			break;
@@ -232,28 +231,7 @@ void sendCommand(char command)
 		case 'Q':
 			exitFlag=1;
 			break;
-		//NEW
-		case 'e':
-		case 'E':
-			commandPacket.command = COMMAND_GET_COLOR;
-			sendPacket(&commandPacket);
-			break;
-		case 'w':
-		case 'W':
-			commandPacket.command = COMMAND_W;
-			sendPacket(&commandPacket);
-		case 'a':
-		case 'A':
-			commandPacket.command = COMMAND_A;
-			sendPacket(&commandPacket);
-		case 's':
-		case 'S':
-			commandPacket.command = COMMAND_S;
-			sendPacket(&commandPacket);
-		case 'd':
-		case 'D':
-			commandPacket.command = COMMAND_D;
-			sendPacket(&commandPacket);
+
 		default:
 			printf("Bad command\n");
 
@@ -284,8 +262,7 @@ int main()
 	while(!exitFlag)
 	{
 		char ch;
-		printf("Command: f=forward, b=reverse, l=turn left, r=turn right, x=stop\n");
-		printf("c=clear stats, g=get stats, q=exit, e=getcolor\n");
+		printf("Command (f=forward, b=reverse, l=turn left, r=turn right, s=stop, c=clear stats, g=get stats q=exit)\n");
 		scanf("%c", &ch);
 
 		// Purge extraneous characters from input stream

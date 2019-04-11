@@ -41,11 +41,6 @@ typedef enum
   COMMAND_STOP = 4,
   COMMAND_GET_STATS = 5,
   COMMAND_CLEAR_STATS = 6
-  COMMAND_GET_COLOR = 7;
-  COMMAND_W = 8;
-  COMMAND_A = 9;
-  COMMAND_S = 10;
-  COMMAND_D = 11;
 } TCommandType;
 #endif
 
