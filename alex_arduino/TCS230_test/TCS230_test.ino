@@ -30,7 +30,7 @@ void TCS230_run(){
   //read output frequency
   TCS230_red = pulseIn(TCS230_out,LOW);
   //map red 
-  TCS230_red = map(TCS230_red, 100, 500, 255, 0);
+//  TCS230_red = map(TCS230/_red, 100, 500, 255, 0);
   delay(100);  //check if time delay between each colour check is necessary
   
   //set green photodiodes to be read
@@ -39,7 +39,7 @@ void TCS230_run(){
   //read output frequency
   TCS230_green = pulseIn(TCS230_out,LOW);  
   //map green
-  TCS230_green = map(TCS230_green,60,400,255,0);
+//  TCS230_green = map(TCS230_green/,60,400,255,0);
   delay(100);
   
   //set blue filtered photodiodes to be read
@@ -48,7 +48,7 @@ void TCS230_run(){
   //read output frequency
   TCS230_blue = pulseIn(TCS230_out,LOW);
   //map blue
-  TCS230_blue = map(TCS230_blue, 85, 490, 255, 0);
+//  TCS230_blue = map(TCS230_bl/ue, 85, 490, 255, 0);
   //print frequency values
   Serial.print("red ");
   Serial.println(TCS230_red);

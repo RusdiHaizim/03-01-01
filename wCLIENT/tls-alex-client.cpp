@@ -1,4 +1,6 @@
-
+#include "ncurses.h"
+#include <iostream>
+#include <unistd.h>
 // Routines to create a TLS client
 #include "make_tls_client.h"
 
@@ -152,12 +154,72 @@ void getParams(int32_t *params)
 	flushInput();
 }
 
+void WASD_movement(void *conn, char cmd) {
+    //
+    char buffer[10];
+    int32_t params[2];
+	buffer[0] = NET_COMMAND_PACKET;
+    initscr();
+    noecho();
+    cmd = getch();
+    while (cmd != 'z') {
+        //
+        usleep(100000);
+        switch (cmd)
+        {
+            case 'w':
+            case 'W':
+                //
+				params[0]=0;
+				params[1]=0;
+				memcpy(&buffer[2], params, sizeof(params));
+				buffer[1] = cmd;
+				sendData(conn, buffer, sizeof(buffer));
+                break;
+            case 'a':
+            case 'A':
+                //
+				params[0]=0;
+				params[1]=0;
+				memcpy(&buffer[2], params, sizeof(params));
+				buffer[1] = cmd;
+				sendData(conn, buffer, sizeof(buffer));
+                break;
+            case 's':
+            case 'S':
+                //
+				params[0]=0;
+				params[1]=0;
+				memcpy(&buffer[2], params, sizeof(params));
+				buffer[1] = cmd;
+				sendData(conn, buffer, sizeof(buffer));
+                break;
+            case 'd':
+            case 'D':
+                //
+				params[0]=0;
+				params[1]=0;
+				memcpy(&buffer[2], params, sizeof(params));
+				buffer[1] = cmd;
+				sendData(conn, buffer, sizeof(buffer));
+                break;
+            default:
+                printf("Bad!!\n");
+        }
+        std::cout << cmd << std::endl;
+        cmd = getch();
+    }
+    endwin();
+    clear();
+}
+
 void *writerThread(void *conn)
 {
 	int quit=0;
 
 	while(!quit)
 	{
+        usleep(100000);
 		char ch;
 		printf("Command (f=forward, b=reverse, l=turn left, r=turn right, s=stop, c=clear stats, g=get stats q=exit)\n");
 		scanf("%c", &ch);
@@ -184,6 +246,11 @@ void *writerThread(void *conn)
 						memcpy(&buffer[2], params, sizeof(params));
 						sendData(conn, buffer, sizeof(buffer));
 						break;
+            case 'z':
+                        buffer[1] = ch;
+                        //sendData(conn, buffer, sizeof(buffer));
+                        WASD_movement(conn, ch);
+                        break;
 			case 's':
 			case 'S':
 			case 'c':

@@ -23,7 +23,7 @@
 volatile int TCS230_frequency = 0; //TCS230 frequency
 volatile int TCS230_red = 0, TCS230_green = 0, TCS230_blue = 0;
 
-/*
+
 void setup_TCS230(){
   pinMode(TCS230_s0, OUTPUT);
   pinMode(TCS230_s1, OUTPUT);
@@ -42,7 +42,7 @@ void TCS230_run(){
   //read output frequency
   TCS230_red = pulseIn(TCS230_out,LOW);
   //map red 
-  TCS230_red = map(TCS230_red, 100, 500, 255, 0);
+//  TCS230_red = map(TC/S2/30_red, 100, 500, 255, 0);/
   delay(100);  //check if time delay between each colour check is necessary
   
   //set green photodiodes to be read
@@ -51,7 +51,7 @@ void TCS230_run(){
   //read output frequency
   TCS230_green = pulseIn(TCS230_out,LOW);  
   //map green
-  TCS230_green = map(TCS230_green,60,400,255,0);
+//  TCS230_green = map(T/CS230_green,60,400,255,0);
   delay(100);
   
   //set blue filtered photodiodes to be read
@@ -60,27 +60,46 @@ void TCS230_run(){
   //read output frequency
   TCS230_blue = pulseIn(TCS230_out,LOW);
   //map blue
-  TCS230_blue = map(TCS230_blue, 85, 490, 255, 0);
+//  TCS230_blue = ma/p(TCS230_blue, 85, 490, 255, 0);
   //print frequency values
-//  Serial.print("red ");
-//  Serial.println(TCS230_red);
-//  Serial.print("green ");
-//  Serial.println(TCS230_green);
-//  Serial.print("blue ");
-//  Serial.println(TCS230_blue);
+  //Serial.print("red: ");
+  //Serial.print(TCS230_red);
+  //Serial.print(" green: ");
+  //Serial.print(TCS230_green);
+  //Serial.print(" blue: ");
+  //Serial.println(TCS230_blue);
   //if all values are close to each other, colour is green
-  if (abs(TCS230_red - 255) < 30 && abs(TCS230_green - 255) < 30 && abs(TCS230_blue - 255) < 30){
-//    Serial.println("green"); 
-  } else if (abs(TCS230_red - 255) < 30 && abs(TCS230_green - 255) > 70 && abs(TCS230_blue - 255) > 70){
-//    Serial.println("red"); 
+//  if (abs(TCS230_red - 255) < 30 && abs(TCS230_green - 255) < 30 && abs(TCS230_blue - 255) < 30){
+//    //Serial.println("FINAL green");
+//    sendMessage("GREEN BOI...\n"); 
+//  } else if (abs(TCS230_red - 255) < 30 && abs(TCS230_green - 255) > 70 && abs(TCS230_blue - 255) > 70){
+//    //Serial.println("FINAL red"); 
+//    sendMessage("RED boiiiii...\n");
+//  }
+  if (TCS230_red < 40 && TCS230_green < 40 && TCS230_blue < 40){
+    sendMessage("white boi?");
+  } else if (TCS230_red > 70 && TCS230_green > 70 && TCS230_blue > 70){
+    sendMessage("black boi?");
+  } else {
+    int min_col_val = min(TCS230_red,TCS230_green);
+    if (TCS230_red == TCS230_green){
+      sendMessage("red and green boi");
+    }
+    if (min_col_val == TCS230_red) 
+      sendMessage("Red boi");
+    else if (min_col_val == TCS230_green){
+      sendMessage("Green boi"); 
+    }
   }
+  return 0;
 } 
-*/
+
 /* iR bool */
 volatile bool isHitLeft = false;
 volatile bool isHitRight = false;
 volatile bool isHitFront = false;
 volatile bool isSent = false;
+
 typedef enum {
   STOP=0,
   FORWARD=1,
@@ -90,7 +109,6 @@ typedef enum {
 } TDirection;
 
 volatile TDirection dir = STOP;
-
 
 void WDT_off(void) {
   /* Global interrupt should be turned OFF here if not already done so */
@@ -160,10 +178,6 @@ void putArduinoToIdle()
 #define LR                  5   // Left reverse pin || AIN1
 #define RF                  10  // Right forward pin|| BIN2
 #define RR                  11  // Right reverse pin|| BIN1
-//#define LR                  6   // Left forward pin || AIN2
-//#define LF                  5   // Left reverse pin || AIN1
-//#define RR                  10  // Right forward pin|| BIN2
-//#define RF                  11  // Right reverse pin|| BIN1
 
 /*
  *    Alex's State Variables
@@ -454,20 +468,20 @@ ISR(ADC_vect) {
   unsigned int adcvalue = (hival << 8) + loval;
   //Serial.println("test");
   switch (ADMUX) {
-    //left INFRA
+    //right INFRA
     case 0b01000000:
       if (adcvalue < 50) {
-        isHitLeft = true;
+        isHitRight = true;
       }
       else {
-        isHitLeft = false;
+        isHitRight = false;
       }
       ADMUX = 0b01000001;
       break;
-    //right INFRA
+    //left INFRA
     case 0b01000001:
-      if (adcvalue < 50) isHitRight = true;
-      else isHitRight = false;
+      if (adcvalue < 50) isHitLeft = true;
+      else isHitLeft = false;
       ADMUX = 0b01000010;
       break;
     //front INFRA?
@@ -490,21 +504,30 @@ ISR(ADC_vect) {
       break;
   }
   if (isHitFront) {
-    //stop();
+    if (dir == FORWARD) {
+      stop();
+    }
+    
     if (!isSent) {
       sendMessage("YOU GOT HIT.... HAhaha hahahah \n");
       isSent = true;
     }
   }
   if (isHitLeft) {
-    right(10, 75);
+    if (dir == LEFT) {
+      stop();
+    }
+    //right(10, 75);
     if (!isSent) {
       sendMessage("my LEFT hurts \n");
       isSent = true;
     }
-  }
+  } 
   if (isHitRight) {
-    left(10, 75);
+    if (dir == RIGHT) {
+      stop();
+    }
+    //left(10, 75);
     if (!isSent) {
       sendMessage("my RIGHT hurts \n");
       isSent = true; 
@@ -876,7 +899,7 @@ void handleCommand(TPacket *command)
         break;
     case COMMAND_GET_COLOR:
         sendOK();
-        //TCS230_run();
+        TCS230_run();
         break;
     case COMMAND_W:
         sendOK();
@@ -884,7 +907,7 @@ void handleCommand(TPacket *command)
         break;
     case COMMAND_A:
         sendOK();
-        left((float) 100, (float) 85);
+        left((float) 20, (float) 85);
       break;
     case COMMAND_S:
         sendOK();
@@ -892,7 +915,7 @@ void handleCommand(TPacket *command)
       break;
     case COMMAND_D:
         sendOK();
-        right((float) 100, (float) 85);
+        right((float) 20, (float) 85);
       break;
     default:
       sendBadCommand();
@@ -951,14 +974,14 @@ void setup() {
   enablePullups();
   initializeState();
   /* Color Sensor */
-  //setup_TCS230();
+  setup_TCS230();
   /* iR */
   setupADC();
   startADC();
   /*Power Saving*/
   //setupPowerSaving();
   sei();
-  DDRC &= ~(0b00000001);
+  //DDRC &= ~(0b00000001);
   //dir = BACKWARD;
 }
 
@@ -1040,6 +1063,7 @@ void loop() {
   }
   
  // put your main code here, to run repeatedly:
+ 
   TPacket recvPacket; // This holds commands from the Pi
 
   TResult result = readPacket(&recvPacket);
@@ -1057,6 +1081,12 @@ void loop() {
   else if (result == PACKET_INCOMPLETE && dir == STOP) {
     //putArduinoToIdle();
   }
+  
+  //TCS230_run();
+  //delay(1000);
+
+  
+  //reverse(500, 70);
   //Serial.println(ratio,5); //comment out when running on arduino
 //  Serial.print("Left: ");
 //  Serial.print(leftWheelDiff);
