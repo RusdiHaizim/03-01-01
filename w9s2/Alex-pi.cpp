@@ -15,6 +15,7 @@
 
 int exitFlag=0;
 sem_t _xmitSema;
+int colorstate = 0;
 
 void handleError(TResult error)
 {
@@ -211,6 +212,7 @@ void WASD_movement(char cmd) {
                 break;
             case 'e':
             case 'E':
+                usleep(100000);
                 commandPacket.command = COMMAND_GET_COLOR;
                 sendPacket(&commandPacket);
                 break;
@@ -289,6 +291,7 @@ void sendCommand(char command)
         //NEW
         case 'e':
         case 'E':
+        usleep(100000);
         commandPacket.command = COMMAND_GET_COLOR;
         sendPacket(&commandPacket);
         break;
@@ -298,6 +301,18 @@ void sendCommand(char command)
         break;
         case '0':
         commandPacket.command = COMMAND_AUTO;
+        sendPacket(&commandPacket);
+        break;
+        case '1':
+        if (colorstate) {
+            printf("ON LIGHTS\n");
+            colorstate = 1 - colorstate;
+        }
+        else { 
+            printf("OFF LIGHTS\n");
+            colorstate = 1 - colorstate;
+        }
+        commandPacket.command = COMMAND_TURN_COLOR;
         sendPacket(&commandPacket);
         break;
         default:
@@ -321,14 +336,17 @@ int main()
 
     pthread_create(&recv, NULL, receiveThread, NULL);
 
+    usleep(100000);
     // Send a hello packet
     TPacket helloPacket;
 
     helloPacket.packetType = PACKET_TYPE_HELLO;
     sendPacket(&helloPacket);
 
+    usleep(100000);
     while(!exitFlag)
     {
+        usleep(100000);
         char ch;
         printf("Command: f=forward, b=reverse, l=turn left, r=turn right, x=stop\n");
         printf("c=clear stats, g=get stats, q=exit, e=getcolor\n");

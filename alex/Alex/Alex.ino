@@ -20,8 +20,10 @@
 #define TCS230_s2 12 // TCS230 led
 #define TCS230_s3 13 // TCS230 led 
 #define TCS230_out 4 //input from TCS230
+#define TCS230_master 9
 volatile int TCS230_frequency = 0; //TCS230 frequency
 volatile int TCS230_red = 0, TCS230_green = 0, TCS230_blue = 0;
+volatile int colorMaster = 1;
 
 /* Software reset */
 void(* resetFunc) (void) = 0; 
@@ -31,6 +33,7 @@ void setup_TCS230(){
   pinMode(TCS230_s1, OUTPUT);
   pinMode(TCS230_s2, OUTPUT);
   pinMode(TCS230_s3, OUTPUT);
+  pinMode(TCS230_master, OUTPUT);
   pinMode(TCS230_out,INPUT);
   //setting frequency scaling to 20%
   digitalWrite(TCS230_s0,HIGH);
@@ -431,6 +434,8 @@ void rightISR()
  * false - engage auto mode; will cause bot to manually adjust left and right 
  *         and also move forward indefinitely ONCE (can be stopped manually or calling masterIR again)
  */
+volatile bool process = false;
+volatile bool starting = true;
 volatile bool masterIR = true;
 volatile bool isHitLeft = false;
 volatile bool isHitRight = false;
@@ -466,6 +471,10 @@ ISR(ADC_vect) {
       break;
     //front INFRA?
     case 0b01000010:
+      if (starting) {
+        //delay(1000);
+        starting = false;
+      }
       if (adcvalue < 50) isHitFront = true;
       else isHitFront = false;
       ADMUX = 0b01000011;
@@ -483,12 +492,14 @@ ISR(ADC_vect) {
   if (isHitFront) {
     if (dir == FORWARD) stop();
     //when stopped, automatically gets color reading
-    if (!isSent) {
+    /*
+    if (!isSent && !starting) {
       TCS230_run();
-      delay(100);
+      delay(1000);
       sendMessage("YOU GOT HIT.... aRa aRa \n");
       isSent = true;
     }
+    */
   }
   if (isHitLeft) {
     if (dir == LEFT) stop();
@@ -506,6 +517,7 @@ ISR(ADC_vect) {
       isSent = true; 
     }
   }
+  if (process)
   ADCSRA |= 0b01000000;
 }
 
@@ -687,8 +699,8 @@ unsigned long computeDeltaTicks(float ang) {
 // Turn Alex left "ang" degrees at speed "speed".
 // "speed" is expressed as a percentage. E.g. 50 is
 // turn left at half speed.
-// Specifying an angle of 0 degrees will cause Alex to
-// turn left indefinitely.
+// Specifying an angle of 0 degrees will cause Alex toas
+// turn left indefinitely.h
 void right(float ang, float speed) //DONT USE RIGHT!!!
 {
   dir = RIGHT;
@@ -700,8 +712,8 @@ void right(float ang, float speed) //DONT USE RIGHT!!!
   else
     deltaTicks = computeDeltaTicks(ang);
   
-  targetTicks = rightReverseTicksTurns + deltaTicks;
-  
+  targetTicks = leftForwardTicksTurns + deltaTicks;
+  //targetTicks = rightReverseTicksTurns + deltaTicks;
   float Lratio = 1;
   if (ang == 90) {
     Lratio *= 1.25;
@@ -816,6 +828,7 @@ void initializeState()
 
 void handleCommand(TPacket *command)
 {
+  delay(100);
   isSent = false;
   switch(command->command)
   {
@@ -851,9 +864,20 @@ void handleCommand(TPacket *command)
         sendOK();
         TCS230_run();
         break;
+    case COMMAND_TURN_COLOR:
+        sendOK();
+        if (colorMaster) {
+          digitalWrite(TCS230_master, LOW);
+          colorMaster = 1 - colorMaster;
+        }
+        else {
+          digitalWrite(TCS230_master, HIGH);
+          colorMaster = 1 - colorMaster;
+        }
+        break;
     case COMMAND_W:
         sendOK();
-        forward((float) 10, (float) 65);
+        forward((float) 10, (float) 60);
         break;
     case COMMAND_A:
         sendOK();
@@ -861,7 +885,7 @@ void handleCommand(TPacket *command)
       break;
     case COMMAND_S:
         sendOK();
-        reverse((float) 10, (float) 65);
+        reverse((float) 10, (float) 60);
       break;
     case COMMAND_D:
         sendOK();
@@ -944,8 +968,8 @@ void setup() {
   /* Color Sensor */
   setup_TCS230();
   /* iR */
-  setupADC();
-  startADC();
+  //setupADC();
+  //startADC();
   
   sei();
   //DDRC &= ~(0b00000001);
@@ -1016,7 +1040,8 @@ void loop() {
       }
     }
     else if (dir == RIGHT) {
-      if (rightReverseTicksTurns >= targetTicks) {
+      if (leftForwardTicksTurns >= targetTicks) {
+      //if (rightReverseTicksTurns >= targetTicks) {
         deltaTicks = 0;
         targetTicks = 0;
         stop();
@@ -1030,7 +1055,7 @@ void loop() {
   }
   
  // put your main code here, to run repeatedly:
- 
+ process = false;
   TPacket recvPacket; // This holds commands from the Pi
 
   TResult result = readPacket(&recvPacket);
@@ -1048,6 +1073,14 @@ void loop() {
   else if (result == PACKET_INCOMPLETE && dir == STOP) {
     putArduinoToIdle();
   }
+  if (starting) {
+    delay(1000);
+    setupADC();
+    delay(100);
+    startADC();
+    starting = false;
+  }
+process = true;
   
   //TCS230_run();
   //delay(1000);

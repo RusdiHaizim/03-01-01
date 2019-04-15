@@ -46,7 +46,8 @@ typedef enum
   COMMAND_A = 9,
   COMMAND_S = 10,
   COMMAND_D = 11,
-  COMMAND_AUTO = 12
+  COMMAND_AUTO = 12,
+  COMMAND_TURN_COLOR = 13
 } TCommandType;
 #endif
 
