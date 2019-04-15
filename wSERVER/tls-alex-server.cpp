@@ -10,7 +10,7 @@
 #include <iostream>
 
 /* TODO: Set PORT_NAME to the port name of your Arduino */
-#define PORT_NAME  "/dev/ttyACM1"	
+#define PORT_NAME  "/dev/ttyACM0"	
 /* END TODO */
 
 #define BAUD_RATE			B57600
@@ -296,6 +296,10 @@ void handleCommand(void *conn, const char *buffer)
         case 'd':
         case 'D':
             commandPacket.command = COMMAND_D;
+            uartSendPacket(&commandPacket);
+            break;
+        case '0':
+            commandPacket.command = COMMAND_AUTO;
             uartSendPacket(&commandPacket);
             break;
         default:

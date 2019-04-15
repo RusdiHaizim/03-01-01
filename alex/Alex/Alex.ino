@@ -853,19 +853,19 @@ void handleCommand(TPacket *command)
         break;
     case COMMAND_W:
         sendOK();
-        forward((float) 10, (float) 75);
+        forward((float) 10, (float) 65);
         break;
     case COMMAND_A:
         sendOK();
-        left((float) 25, (float) 90);
+        left((float) 25, (float) 75);
       break;
     case COMMAND_S:
         sendOK();
-        reverse((float) 10, (float) 75);
+        reverse((float) 10, (float) 65);
       break;
     case COMMAND_D:
         sendOK();
-        right((float) 25, (float) 90);
+        right((float) 25, (float) 75);
       break;
     case COMMAND_AUTO:
     resetFunc();
