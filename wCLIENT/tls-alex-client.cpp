@@ -263,6 +263,14 @@ void *writerThread(void *conn)
 					buffer[1] = ch;
 					sendData(conn, buffer, sizeof(buffer));
 					break;
+            case 'e':
+					params[0]=0;
+					params[1]=0;
+					memcpy(&buffer[2], params, sizeof(params));
+					buffer[1] = ch;
+					sendData(conn, buffer, sizeof(buffer));
+					break;
+
 			case 'q':
 			case 'Q':
 				quit=1;

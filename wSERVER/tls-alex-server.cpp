@@ -10,7 +10,7 @@
 #include <iostream>
 
 /* TODO: Set PORT_NAME to the port name of your Arduino */
-#define PORT_NAME  "/dev/ttyACM0"	
+#define PORT_NAME  "/dev/ttyACM1"	
 /* END TODO */
 
 #define BAUD_RATE			B57600
@@ -272,27 +272,32 @@ void handleCommand(void *conn, const char *buffer)
             commandPacket.command = COMMAND_GET_STATS;
             uartSendPacket(&commandPacket);
             break;
+        case 'e':
+        case 'E':
+            commandPacket.command = COMMAND_GET_COLOR;
+            uartSendPacket(&commandPacket);
+            break;
 
-            case 'w':
-            case 'W':
-                commandPacket.command = COMMAND_W;
-                uartSendPacket(&commandPacket);
-                break;
-            case 'a':
-            case 'A':
-                commandPacket.command = COMMAND_A;
-                uartSendPacket(&commandPacket);
-                break;
-            case 's':
-            case 'S':
-                commandPacket.command = COMMAND_S;
-                uartSendPacket(&commandPacket);
-                break;
-            case 'd':
-            case 'D':
-                commandPacket.command = COMMAND_D;
-                uartSendPacket(&commandPacket);
-                break;
+        case 'w':
+        case 'W':
+            commandPacket.command = COMMAND_W;
+            uartSendPacket(&commandPacket);
+            break;
+        case 'a':
+        case 'A':
+            commandPacket.command = COMMAND_A;
+            uartSendPacket(&commandPacket);
+            break;
+        case 's':
+        case 'S':
+            commandPacket.command = COMMAND_S;
+            uartSendPacket(&commandPacket);
+            break;
+        case 'd':
+        case 'D':
+            commandPacket.command = COMMAND_D;
+            uartSendPacket(&commandPacket);
+            break;
         default:
             printf("Bad command\n");
 
