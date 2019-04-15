@@ -45,7 +45,7 @@ typedef enum
   COMMAND_W = 8,
   COMMAND_A = 9,
   COMMAND_S = 10,
-  COMMAND_D = 11
+  COMMAND_D = 11,
+  COMMAND_AUTO = 12
 } TCommandType;
 #endif
-

@@ -10,7 +10,7 @@
 #include "ncurses.h"
 #include <iostream>
 
-#define PORT_NAME			"/dev/ttyACM0"
+#define PORT_NAME			"/dev/ttyACM1"
 #define BAUD_RATE			B57600
 
 int exitFlag=0;

@@ -23,6 +23,8 @@
 volatile int TCS230_frequency = 0; //TCS230 frequency
 volatile int TCS230_red = 0, TCS230_green = 0, TCS230_blue = 0;
 
+/* Software reset */
+void(* resetFunc) (void) = 0; 
 
 void setup_TCS230(){
   pinMode(TCS230_s0, OUTPUT);
@@ -92,13 +94,7 @@ void TCS230_run(){
     }
   }
   return 0;
-} 
-
-/* iR bool */
-volatile bool isHitLeft = false;
-volatile bool isHitRight = false;
-volatile bool isHitFront = false;
-volatile bool isSent = false;
+}
 
 typedef enum {
   STOP=0,
@@ -131,9 +127,9 @@ void setupPowerSaving()
   // Modify PRR to shut down SPI
   PRR |= 0b00000100;
   // Modify ADCSRA to disable ADC,
-  ADCSRA &= 0b01111111;
+  //ADCSRA &= 0b01111111;
   // then modify PRR to shut down ADC
-  PRR |= 0b00000001;
+  //PRR |= 0b00000001;
   // Set the SMCR to choose the IDLE sleep mode
   // Do not set the Sleep Enable (SE) bit yet
   SMCR |= 0b00000000;
@@ -366,7 +362,7 @@ void enablePullups()
   DDRD  &= 0b11110011;
   PORTD |= 0b00001100;
 }
-
+/* PID (not implemented)*/
 volatile float ratio = 0.95;
 volatile float error = 0, integral = 0;
 const float Kp = -0.004, Ki = -0.0002;
@@ -388,32 +384,20 @@ void leftISR()
   }
   else if (dir==LEFT) {
     leftReverseTicksTurns++;
-    //leftForwardTicksTurns++;
   }
   else if (dir==RIGHT) {
     leftForwardTicksTurns++;
-    //leftReverseTicksTurns++;
   }
   if (leftWheelDiff == 25) {
     if (dir == FORWARD || dir == BACKWARD) {
       error = rightWheelDiff - leftWheelDiff;
       integral += error;
       ratio += (error*Kp > 0.01 ? error*Kp*0.01 : 0.01) + integral*Ki;
-    
     }
     leftWheelDiff = rightWheelDiff = 0;
   }
-  //leftRevs = leftForwardTicks / COUNTS_PER_REV;
-
-  // We calculate forwardDist only in leftISR because we
-  // assume that the left and right wheels move at the same
-  // time.
-  
-  
   //Serial.print("LEFT: ");
   //Serial.println(leftForwardTicks);
-//  dprintf("Left: ");
-//  dprintf("%d", LefttForwardTicks);
 }
 
 void rightISR()
@@ -422,36 +406,36 @@ void rightISR()
   //rightForwardTicks++;
   if (dir==FORWARD) {
     rightForwardTicks++;
-    //rightReverseTicks++;
   }
   else if (dir==BACKWARD) {
     rightReverseTicks++;
-    //rightForwardTicks++;
   }
   else if (dir==LEFT) {
     rightForwardTicksTurns++;
-    //rightReverseTicksTurns++;
   }
   else if (dir==RIGHT) {
     rightReverseTicksTurns++;
-    //rightForwardTicksTurns++;
   }
   if (rightWheelDiff == 25) {
     if (dir == FORWARD || dir == BACKWARD) {
       error = rightWheelDiff - leftWheelDiff;
       integral += error;
       ratio += (error*Kp < -0.01 ? error*Kp*-0.01 : -0.01) + integral*Ki;
-      
     }
     leftWheelDiff = rightWheelDiff = 0;
   }
-
-  //rightRevs = rightForwardTicks / COUNTS_PER_REV;
-  //Serial.print("RIGHT: ");
-//  dprintf("RIGHT: ");
-//  dprintf("%d", rightForwardTicks);
-  //Serial.println(rightForwardTicks);
 }
+
+/* iR bool */
+/* true - normal stopping
+ * false - engage auto mode; will cause bot to manually adjust left and right 
+ *         and also move forward indefinitely ONCE (can be stopped manually or calling masterIR again)
+ */
+volatile bool masterIR = true;
+volatile bool isHitLeft = false;
+volatile bool isHitRight = false;
+volatile bool isHitFront = false;
+volatile bool isSent = false;
 
 void setupADC() {
   PRR &= 0b11111110;
@@ -470,12 +454,8 @@ ISR(ADC_vect) {
   switch (ADMUX) {
     //right INFRA
     case 0b01000000:
-      if (adcvalue < 50) {
-        isHitRight = true;
-      }
-      else {
-        isHitRight = false;
-      }
+      if (adcvalue < 50) isHitRight = true;
+      else isHitRight = false;
       ADMUX = 0b01000001;
       break;
     //left INFRA
@@ -491,45 +471,38 @@ ISR(ADC_vect) {
       ADMUX = 0b01000011;
       break;
     case 0b01000011:
-      //
       ADMUX = 0b01000100;
       break;
     case 0b01000100:
-      //
       ADMUX = 0b01000101;
       break;
     case 0b01000101:
-      //
       ADMUX = 0b01000000;
       break;
   }
   if (isHitFront) {
-    if (dir == FORWARD) {
-      stop();
-    }
-    
+    if (dir == FORWARD) stop();
+    //when stopped, automatically gets color reading
     if (!isSent) {
-      sendMessage("YOU GOT HIT.... HAhaha hahahah \n");
+      TCS230_run();
+      delay(100);
+      sendMessage("YOU GOT HIT.... aRa aRa \n");
       isSent = true;
     }
   }
   if (isHitLeft) {
-    if (dir == LEFT) {
-      stop();
-    }
-    //right(10, 75);
+    if (dir == LEFT) stop();
+    if (!masterIR) right(10,90);
     if (!isSent) {
-      sendMessage("my LEFT hurts \n");
+      sendMessage("my LEFT hurts senpai.. uWu\n");
       isSent = true;
     }
   } 
   if (isHitRight) {
-    if (dir == RIGHT) {
-      stop();
-    }
-    //left(10, 75);
+    if (dir == RIGHT) stop();
+    if (!masterIR) left(10, 90);
     if (!isSent) {
-      sendMessage("my RIGHT hurts \n");
+      sendMessage("my RIGHT hurts.. YAMERO!!\n");
       isSent = true; 
     }
   }
@@ -563,9 +536,6 @@ ISR(INT1_vect)
 {
   rightISR();
 }
-
-
-// Implement INT0 and INT1 ISRs above.
 
 /*
  * Setup and start codes for serial communications
@@ -671,11 +641,6 @@ void reverse(float dist, float speed)
     
   newDist = reverseDist + deltaDist;
 
-  
-//  analogWrite(LF, val);
-//  analogWrite(RF, val * 0.95);
-//  analogWrite(LR,0);
-//  analogWrite(RR, 0);
   analogWrite(LR, val);
   analogWrite(RR, val*0.95);
   analogWrite(LF,0);
@@ -704,10 +669,6 @@ void forward(float dist, float speed)
     deltaDist = dist;
   newDist = forwardDist + deltaDist;
 
-//  analogWrite(LR, val);
-//  analogWrite(RR, val*0.95);
-//  analogWrite(LF, 0);
-//  analogWrite(RF, 0);
   analogWrite(LF, val);
   analogWrite(RF, val*0.95);
   analogWrite(LR,0);
@@ -741,10 +702,6 @@ void right(float ang, float speed) //DONT USE RIGHT!!!
   
   targetTicks = rightReverseTicksTurns + deltaTicks;
   
-//  analogWrite(LR, val*1.15); //LR by right should turn left, but we made it turn right
-//  analogWrite(RF, val);
-//  analogWrite(LF, 0);
-//  analogWrite(RR, 0);
   float Lratio = 1;
   if (ang == 90) {
     Lratio *= 1.25;
@@ -758,7 +715,6 @@ void right(float ang, float speed) //DONT USE RIGHT!!!
   else {
     Lratio *= 1;
   }
-
 
   analogWrite(RR, val);
   analogWrite(LF, (val*Lratio));
@@ -788,11 +744,6 @@ void left(float ang, float speed)
   
   targetTicks = leftReverseTicksTurns + deltaTicks;
 
-
-//  analogWrite(RR, val);
-//  analogWrite(LF, val*0.95);
-//  analogWrite(LR, 0);
-//  analogWrite(RF, 0);
   float Rratio = 1;
   if (ang == 90) {
     Rratio *= 0.85855;
@@ -806,7 +757,6 @@ void left(float ang, float speed)
   else {
     Rratio *= 1;
   }
-
 
   analogWrite(LR, val);
   analogWrite(RF, val*Rratio);
@@ -907,7 +857,7 @@ void handleCommand(TPacket *command)
         break;
     case COMMAND_A:
         sendOK();
-        left((float) 20, (float) 85);
+        left((float) 25, (float) 90);
       break;
     case COMMAND_S:
         sendOK();
@@ -915,7 +865,22 @@ void handleCommand(TPacket *command)
       break;
     case COMMAND_D:
         sendOK();
-        right((float) 20, (float) 85);
+        right((float) 25, (float) 90);
+      break;
+    case COMMAND_AUTO:
+    resetFunc();
+    /*
+        if (masterIR) {
+          sendMessage("AUTO PILOT INITIATE\n");
+          forward(0, 70);
+          masterIR = 1 - masterIR;
+        }
+        else {
+          sendMessage("AUTO PILOT disengaged...\n");
+          stop();
+          masterIR = 1 - masterIR;
+        }
+    */
       break;
     default:
       sendBadCommand();
@@ -973,13 +938,15 @@ void setup() {
   startMotors();
   enablePullups();
   initializeState();
+  /*Power Saving*/
+  setupPowerSaving();
+  
   /* Color Sensor */
   setup_TCS230();
   /* iR */
   setupADC();
   startADC();
-  /*Power Saving*/
-  //setupPowerSaving();
+  
   sei();
   //DDRC &= ~(0b00000001);
   //dir = BACKWARD;
@@ -1079,23 +1046,11 @@ void loop() {
     sendBadChecksum();
   } 
   else if (result == PACKET_INCOMPLETE && dir == STOP) {
-    //putArduinoToIdle();
+    putArduinoToIdle();
   }
   
   //TCS230_run();
   //delay(1000);
 
-  
   //reverse(500, 70);
-  //Serial.println(ratio,5); //comment out when running on arduino
-//  Serial.print("Left: ");
-//  Serial.print(leftWheelDiff);
-//  Serial.print(" Right: ");
-//  Serial.print(rightWheelDiff);
-//  Serial.print(" ratio: ");
-//  Serial.println(ratio);
-//  delay(5);
-  //Serial.println(error);
-  //if (PINC & 0b00000001) Serial.println("HIT");
-  //Serial.println("loop");
 }
