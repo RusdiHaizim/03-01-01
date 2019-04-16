@@ -38,6 +38,7 @@ void setup_TCS230() {
   //setting frequency scaling to 20%
   digitalWrite(TCS230_s0, HIGH);
   digitalWrite(TCS230_s1, LOW);
+  digitalWrite(TCS230_master, LOW);
 }
 
 void TCS230_run() {
@@ -87,7 +88,7 @@ void TCS230_run() {
   int sum_colors = TCS230_green + TCS230_red + TCS230_blue;
   if (sum_colors <= 75) {
     sendMessage("white boiii");
-  } else if (sum_colors >= 360) {
+  } else if (sum_colors >= 95) {
     sendMessage("black boiii");
   } else if (ratio < 0.75) {
     sendMessage("red boiii");
@@ -495,8 +496,6 @@ ISR(ADC_vect) {
     if (dir == FORWARD) stop();
     //when stopped, automatically gets color reading
     if (!isSent && !starting) {
-      TCS230_run();
-      delay(1000);
       sendMessage("YOU GOT HIT.... aRa aRa \n");
       isSent = true;
     }
@@ -869,18 +868,15 @@ void handleCommand(TPacket *command)
       break;
     case COMMAND_GET_COLOR:
       sendOK();
+      digitalWrite(TCS230_master, HIGH);
+      delay(100);
       TCS230_run();
+      digitalWrite(TCS230_master, LOW);
+      delay(100);
       break;
     case COMMAND_TURN_COLOR:
       sendOK();
-      if (colorMaster) {
-        digitalWrite(TCS230_master, LOW);
-        colorMaster = 1 - colorMaster;
-      }
-      else {
-        digitalWrite(TCS230_master, HIGH);
-        colorMaster = 1 - colorMaster;
-      }
+      sendMessage("Ooopsie\n");
       break;
     case COMMAND_W:
       sendOK();
@@ -975,7 +971,7 @@ void setup() {
   /* iR */
   //setupADC();
   //startADC();
-
+  /* turn off led of colorsensor */
   sei();
   //DDRC &= ~(0b00000001);
   //dir = BACKWARD;

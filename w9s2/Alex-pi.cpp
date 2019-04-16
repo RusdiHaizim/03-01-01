@@ -15,7 +15,7 @@
 
 int exitFlag=0;
 sem_t _xmitSema;
-int colorstate = 0;
+//int colorstate = 0;
 
 void handleError(TResult error)
 {
@@ -303,6 +303,7 @@ void sendCommand(char command)
         commandPacket.command = COMMAND_AUTO;
         sendPacket(&commandPacket);
         break;
+        /*
         case '1':
         if (colorstate) {
             printf("ON LIGHTS\n");
@@ -315,6 +316,7 @@ void sendCommand(char command)
         commandPacket.command = COMMAND_TURN_COLOR;
         sendPacket(&commandPacket);
         break;
+        */
         default:
         printf("Bad command\n");
 
