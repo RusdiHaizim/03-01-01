@@ -68,12 +68,12 @@ void TCS230_run() {
   //map blue
   //  TCS230_blue = ma/p(TCS230_blue, 85, 490, 255, 0);
   //print frequency values
-  //Serial.print("red: ");
-  //Serial.print(TCS230_red);
-  //Serial.print(" green: ");
-  //Serial.print(TCS230_green);
-  //Serial.print(" blue: ");
-  //Serial.println(TCS230_blue);
+//  Serial.print("red: ");
+//  Serial.print(TCS230_red);
+//  Serial.print(" green: ");
+//  Serial.print(TCS230_green);
+//  Serial.print(" blue: ");
+//  Serial.println(TCS230_blue);
   //if all values are close to each other, colour is green
   //  if (abs(TCS230_red - 255) < 30 && abs(TCS230_green - 255) < 30 && abs(TCS230_blue - 255) < 30){
   //    //Serial.println("FINAL green");
@@ -85,15 +85,29 @@ void TCS230_run() {
   //if all values are close to each other, colour is green
   //ratio of green vs red
   float ratio = (float)TCS230_red / (float)TCS230_green;
+  String strRatio = String(ratio);
   int sum_colors = TCS230_green + TCS230_red + TCS230_blue;
-  if (sum_colors <= 75) {
-    sendMessage("white boiii");
-  } else if (sum_colors >= 95) {
-    sendMessage("black boiii");
-  } else if (ratio < 0.75) {
-    sendMessage("red boiii");
+  //Serial.println(sum_colors);
+  String colorMessage;
+  char charBuf[80];
+  if (sum_colors <= 105) {
+    colorMessage = "white boiii. Sum: ";
+    colorMessage += String(sum_colors) + ", r:" + strRatio;
+    colorMessage.toCharArray(charBuf,colorMessage.length() + 1);
+    sendMessage(charBuf);
+    //Serial.println("WHITE");
+  } else if (ratio < 0.9) {
+    colorMessage = "red boiii. Sum: ";
+    colorMessage += String(sum_colors) + ", r:" + strRatio;
+    colorMessage.toCharArray(charBuf,colorMessage.length() + 1);
+    sendMessage(charBuf);
+    //Serial.println("RED");
   } else {
-    sendMessage("green boiii");
+    colorMessage = "green boiii. Sum: ";
+    colorMessage += String(sum_colors) + ", r:" + strRatio;
+    colorMessage.toCharArray(charBuf,colorMessage.length() + 1);
+    sendMessage(charBuf);
+    //Serial.println("GREEN");
   }
   return 0;
 }
@@ -368,18 +382,10 @@ void enablePullups()
   DDRD  &= 0b11110011;
   PORTD |= 0b00001100;
 }
-/* PID (not implemented)*/
-volatile float ratio = 0.95;
-volatile float error = 0, integral = 0;
-const float Kp = -0.004, Ki = -0.0002;
-volatile int leftWheelDiff = 0;
-volatile int rightWheelDiff = 0;
-
 
 // Functions to be called by INT0 and INT1 ISRs.
 void leftISR()
 {
-  leftWheelDiff++;
   if (dir == FORWARD) {
     leftForwardTicks++;
     forwardDist = (unsigned long) ((float)leftForwardTicks / COUNTS_PER_REV * WHEEL_CIRC);
@@ -394,21 +400,12 @@ void leftISR()
   else if (dir == RIGHT) {
     leftForwardTicksTurns++;
   }
-  if (leftWheelDiff == 25) {
-    if (dir == FORWARD || dir == BACKWARD) {
-      error = rightWheelDiff - leftWheelDiff;
-      integral += error;
-      ratio += (error * Kp > 0.01 ? error * Kp * 0.01 : 0.01) + integral * Ki;
-    }
-    leftWheelDiff = rightWheelDiff = 0;
-  }
   //Serial.print("LEFT: ");
   //Serial.println(leftForwardTicks);
 }
 
 void rightISR()
 {
-  rightWheelDiff++;
   //rightForwardTicks++;
   if (dir == FORWARD) {
     rightForwardTicks++;
@@ -421,14 +418,6 @@ void rightISR()
   }
   else if (dir == RIGHT) {
     rightReverseTicksTurns++;
-  }
-  if (rightWheelDiff == 25) {
-    if (dir == FORWARD || dir == BACKWARD) {
-      error = rightWheelDiff - leftWheelDiff;
-      integral += error;
-      ratio += (error * Kp < -0.01 ? error * Kp * -0.01 : -0.01) + integral * Ki;
-    }
-    leftWheelDiff = rightWheelDiff = 0;
   }
 }
 
@@ -502,7 +491,7 @@ ISR(ADC_vect) {
 
   }
   if (isHitLeft) {
-    if (dir == LEFT) stop();
+    if (dir == LEFT || dir == FORWARD) stop();
     if (!masterIR) right(10, 90);
     if (!isSent) {
       sendMessage("my LEFT hurts senpai.. uWu\n");
@@ -510,7 +499,8 @@ ISR(ADC_vect) {
     }
   }
   if (isHitRight) {
-    if (dir == RIGHT) stop();
+    //if (dir == RIGHT) stop();
+    if (dir == RIGHT || dir == FORWARD) stop();
     if (!masterIR) left(10, 90);
     if (!isSent) {
       sendMessage("my RIGHT hurts.. YAMERO!!\n");
@@ -869,10 +859,10 @@ void handleCommand(TPacket *command)
     case COMMAND_GET_COLOR:
       sendOK();
       digitalWrite(TCS230_master, HIGH);
-      delay(100);
+      delay(500);
       TCS230_run();
       digitalWrite(TCS230_master, LOW);
-      delay(100);
+      delay(500);
       break;
     case COMMAND_TURN_COLOR:
       sendOK();
@@ -880,19 +870,19 @@ void handleCommand(TPacket *command)
       break;
     case COMMAND_W:
       sendOK();
-      forward((float) 10, (float) 60);
+      forward((float) 8, (float) 60);
       break;
     case COMMAND_A:
       sendOK();
-      left((float) 25, (float) 75);
+      left((float) 15, (float) 75);
       break;
     case COMMAND_S:
       sendOK();
-      reverse((float) 10, (float) 60);
+      reverse((float) 8, (float) 60);
       break;
     case COMMAND_D:
       sendOK();
-      right((float) 25, (float) 75);
+      right((float) 15, (float) 75);
       break;
     case COMMAND_AUTO:
       resetFunc();
@@ -965,9 +955,10 @@ void setup() {
   initializeState();
   /*Power Saving*/
   setupPowerSaving();
-
+  
   /* Color Sensor */
   setup_TCS230();
+  digitalWrite(TCS230_master, LOW);
   /* iR */
   //setupADC();
   //startADC();
@@ -1000,14 +991,6 @@ void handlePacket(TPacket *packet)
 }
 
 void loop() {
-
-  // Uncomment the code below for Step 2 of Activity 3 in Week 8 Studio 2
-
-  // forward(0, 100);
-  //  delay(1000);
-  //  stop();
-  //  delay(1000);
-  // Uncomment the code below for Week 9 Studio 2
 
   // Code to stop motor once the forwardDist by encoders exceed newDist input by USER
   if (deltaDist > 0) {
@@ -1074,10 +1057,11 @@ void loop() {
     putArduinoToIdle();
     starting = true;
   }
-
-
-  //TCS230_run();
-  //delay(1000);
-
-  //reverse(500, 70);
+  /*
+  digitalWrite(TCS230_master, HIGH);
+  delay(500);
+  TCS230_run();
+  delay(500);
+  digitalWrite(TCS230_master, LOW);
+  */
 }
