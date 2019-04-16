@@ -12,6 +12,7 @@
 
 // Tells us that the network is running.
 static volatile int networkActive=0;
+volatile int colorled = 1;
 
 void handleError(const char *buffer)
 {
@@ -291,6 +292,21 @@ void *writerThread(void *conn)
                 memcpy(&buffer[2], params, sizeof(params));
                 buffer[1] = ch;
                 sendData(conn, buffer, sizeof(buffer));
+                break;
+            case '1':
+                params[0]=0;
+                params[1]=0;
+                memcpy(&buffer[2], params, sizeof(params));
+                buffer[1] = ch;
+                sendData(conn, buffer, sizeof(buffer));
+                if (colorled) {
+                    printf("TURNING OFF\n");
+                    colorled = 1 - colorled;
+                }
+                else {
+                    printf("TURNING ON\n");
+                    colorled = 1 - colorled;
+                }
                 break;
             case 'q':
             case 'Q':
