@@ -56,8 +56,6 @@ void TCS230_run() {
   digitalWrite(TCS230_s3, HIGH);
   //read output frequency
   TCS230_green = pulseIn(TCS230_out, LOW);
-  //map green
-  //  TCS230_green = map(T/CS230_green,60,400,255,0);
   delay(100);
 
   //set blue filtered photodiodes to be read
@@ -65,8 +63,6 @@ void TCS230_run() {
   digitalWrite(TCS230_s3, HIGH);
   //read output frequency
   TCS230_blue = pulseIn(TCS230_out, LOW);
-  //map blue
-  //  TCS230_blue = ma/p(TCS230_blue, 85, 490, 255, 0);
   //print frequency values
 //  Serial.print("red: ");
 //  Serial.print(TCS230_red);
@@ -75,19 +71,10 @@ void TCS230_run() {
 //  Serial.print(" blue: ");
 //  Serial.println(TCS230_blue);
   //if all values are close to each other, colour is green
-  //  if (abs(TCS230_red - 255) < 30 && abs(TCS230_green - 255) < 30 && abs(TCS230_blue - 255) < 30){
-  //    //Serial.println("FINAL green");
-  //    sendMessage("GREEN BOI...\n");
-  //  } else if (abs(TCS230_red - 255) < 30 && abs(TCS230_green - 255) > 70 && abs(TCS230_blue - 255) > 70){
-  //    //Serial.println("FINAL red");
-  //    sendMessage("RED boiiiii...\n");
-  //  }
-  //if all values are close to each other, colour is green
   //ratio of green vs red
   float ratio = (float)TCS230_red / (float)TCS230_green;
   String strRatio = String(ratio);
   int sum_colors = TCS230_green + TCS230_red + TCS230_blue;
-  //Serial.println(sum_colors);
   String colorMessage;
   char charBuf[80];
   if (sum_colors <= 105) {
@@ -109,7 +96,6 @@ void TCS230_run() {
     sendMessage(charBuf);
     //Serial.println("GREEN");
   }
-  return 0;
 }
 
 typedef enum {
@@ -447,7 +433,6 @@ ISR(ADC_vect) {
   unsigned int loval = ADCL;
   unsigned int hival = ADCH;
   unsigned int adcvalue = (hival << 8) + loval;
-  //Serial.println("test");
   switch (ADMUX) {
     //right INFRA
     case 0b01000000:
@@ -464,7 +449,6 @@ ISR(ADC_vect) {
     //front INFRA?
     case 0b01000010:
       if (starting) {
-        //delay(1000);
         starting = false;
       }
       if (adcvalue < 50) isHitFront = true;
@@ -485,7 +469,7 @@ ISR(ADC_vect) {
     if (dir == FORWARD) stop();
     //when stopped, automatically gets color reading
     if (!isSent && !starting) {
-      sendMessage("YOU GOT HIT.... aRa aRa \n");
+      sendMessage("YOU GOT HIT.... \n");
       isSent = true;
     }
 
@@ -494,7 +478,7 @@ ISR(ADC_vect) {
     if (dir == LEFT || dir == FORWARD) stop();
     if (!masterIR) right(10, 90);
     if (!isSent) {
-      sendMessage("my LEFT hurts senpai.. uWu\n");
+      sendMessage("my LEFT hurts.. \n");
       isSent = true;
     }
   }
@@ -503,7 +487,7 @@ ISR(ADC_vect) {
     if (dir == RIGHT || dir == FORWARD) stop();
     if (!masterIR) left(10, 90);
     if (!isSent) {
-      sendMessage("my RIGHT hurts.. YAMERO!!\n");
+      sendMessage("my RIGHT hurts.. \n");
       isSent = true;
     }
   }
@@ -568,7 +552,6 @@ void startSerial()
 
 int readSerial(char *buffer)
 {
-
   int count = 0;
 
   while (Serial.available())
@@ -622,12 +605,7 @@ int pwmVal(float speed)
 
   return (int) ((speed / 100.0) * 255.0);
 }
-
-// Move Alex forward "dist" cm at speed "speed".
-// "speed" is expressed as a percentage. E.g. 50 is
-// move forward at half speed.
-// Specifying a distance of 0 means Alex will
-// continue moving forward indefinitely.
+/* Movement functions */
 void reverse(float dist, float speed)
 {
   dir = BACKWARD;
@@ -648,11 +626,6 @@ void reverse(float dist, float speed)
   analogWrite(RF, 0);
 }
 
-// Reverse Alex "dist" cm at speed "speed".
-// "speed" is expressed as a percentage. E.g. 50 is
-// reverse at half speed.
-// Specifying a distance of 0 means Alex will
-// continue reversing indefinitely.
 void forward(float dist, float speed)
 {
   dir = FORWARD;
@@ -660,10 +633,6 @@ void forward(float dist, float speed)
   int val = pwmVal(speed);
   int powerL = val;
   int powerR = val * 0.908;
-  // For now we will ignore dist and
-  // reverse indefinitely. We will fix this
-  // in Week 9.
-
   if (dist == 0)
     deltaDist = 999999;
   else
@@ -684,12 +653,6 @@ unsigned long computeDeltaTicks(float ang) {
   return ticks;
 }
 
-
-// Turn Alex left "ang" degrees at speed "speed".
-// "speed" is expressed as a percentage. E.g. 50 is
-// turn left at half speed.
-// Specifying an angle of 0 degrees will cause Alex toas
-// turn left indefinitely.h
 void right(float ang, float speed) //DONT USE RIGHT!!!
 {
   dir = RIGHT;
@@ -702,36 +665,13 @@ void right(float ang, float speed) //DONT USE RIGHT!!!
     deltaTicks = computeDeltaTicks(ang);
 
   targetTicks = leftForwardTicksTurns + deltaTicks;
-  //targetTicks = rightReverseTicksTurns + deltaTicks;
-  float Lratio = 1;
-  if (ang == 90) {
-    Lratio *= 1.25;
-  }
-  else if (ang == 180) {
-    Lratio *= 1.28;
-  }
-  else if (ang == 360) {
-    //Lratio *= 1.34;
-  }
-  else {
-    Lratio *= 1;
-  }
 
   analogWrite(RR, val);
-  analogWrite(LF, (val * Lratio));
+  analogWrite(LF, val);
   analogWrite(RF, 0);
   analogWrite(LR, 0);
-  /* 90 - scale by 1.21 for both
-     180 - scale by 1.25 for both?
-     360 - scale by
-  */
 }
 
-// Turn Alex right "ang" degrees at speed "speed".
-// "speed" is expressed as a percentage. E.g. 50 is
-// turn left at half speed.
-// Specifying an angle of 0 degrees will cause Alex to
-// turn right indefinitely.
 void left(float ang, float speed)
 {
   dir = LEFT;
@@ -745,28 +685,10 @@ void left(float ang, float speed)
 
   targetTicks = leftReverseTicksTurns + deltaTicks;
 
-  float Rratio = 1;
-  if (ang == 90) {
-    Rratio *= 0.85855;
-  }
-  else if (ang == 180) {
-    Rratio *= 0.92555;
-  }
-  else if (ang == 360) {
-    Rratio *= 0.98;
-  }
-  else {
-    Rratio *= 1;
-  }
-
   analogWrite(LR, val);
-  analogWrite(RF, val * Rratio);
+  analogWrite(RF, val);
   analogWrite(RR, 0);
   analogWrite(LF, 0);
-  /* 90 - scale by 0.86?
-     180 - scale by 0.93
-     360 - scale by
-  */
 }
 
 // Stop Alex. To replace with bare-metal code later.
@@ -817,7 +739,9 @@ void initializeState()
 
 void handleCommand(TPacket *command)
 {
+  /* delay to reduce chance of packet loss */
   delay(100);
+  /* Setup ADC/Infra-red ONLY after received packet */
   if (starting) {
     delay(100);
     setupADC();
@@ -858,9 +782,11 @@ void handleCommand(TPacket *command)
       break;
     case COMMAND_GET_COLOR:
       sendOK();
+      //turns on the LED of color sensor
       digitalWrite(TCS230_master, HIGH);
       delay(500);
       TCS230_run();
+      //turns off the LED of color sensor
       digitalWrite(TCS230_master, LOW);
       delay(500);
       break;
@@ -868,6 +794,7 @@ void handleCommand(TPacket *command)
       sendOK();
       sendMessage("Ooopsie\n");
       break;
+      /* Commands for incremental movement */
     case COMMAND_W:
       sendOK();
       forward((float) 8, (float) 60);
@@ -886,18 +813,6 @@ void handleCommand(TPacket *command)
       break;
     case COMMAND_AUTO:
       resetFunc();
-      /*
-          if (masterIR) {
-            sendMessage("AUTO PILOT INITIATE\n");
-            forward(0, 70);
-            masterIR = 1 - masterIR;
-          }
-          else {
-            sendMessage("AUTO PILOT disengaged...\n");
-            stop();
-            masterIR = 1 - masterIR;
-          }
-      */
       break;
     default:
       sendBadCommand();
@@ -948,24 +863,18 @@ void setup() {
   setupEINT();
   setupSerial();
   startSerial();
-
   setupMotors();
   startMotors();
   enablePullups();
   initializeState();
   /*Power Saving*/
   setupPowerSaving();
-  
   /* Color Sensor */
   setup_TCS230();
+  /* turn off led of colorsensor */
   digitalWrite(TCS230_master, LOW);
   /* iR */
-  //setupADC();
-  //startADC();
-  /* turn off led of colorsensor */
   sei();
-  //DDRC &= ~(0b00000001);
-  //dir = BACKWARD;
 }
 
 void handlePacket(TPacket *packet)
@@ -1014,7 +923,7 @@ void loop() {
       stop();
     }
   }
-
+  // Code to stop motor once the X_Y_TicksTurns by encoders exceed targetTicks input by USER
   if (deltaTicks > 0) {
     if (dir == LEFT) {
       if (leftReverseTicksTurns >= targetTicks) {
@@ -1025,7 +934,6 @@ void loop() {
     }
     else if (dir == RIGHT) {
       if (leftForwardTicksTurns >= targetTicks) {
-        //if (rightReverseTicksTurns >= targetTicks) {
         deltaTicks = 0;
         targetTicks = 0;
         stop();
@@ -1057,11 +965,4 @@ void loop() {
     putArduinoToIdle();
     starting = true;
   }
-  /*
-  digitalWrite(TCS230_master, HIGH);
-  delay(500);
-  TCS230_run();
-  delay(500);
-  digitalWrite(TCS230_master, LOW);
-  */
 }
